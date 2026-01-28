@@ -132,11 +132,25 @@ When new telemetry keys are discovered, they are:
 
 To add them as fixed entities, update `KNOWN_SENSORS` or `KNOWN_BINARY_SENSORS` in `const.py`.
 
+## Required Streaming Keys
+
+When configuring your container in the BMW CarData Portal, add these technical descriptors to receive data for the built-in entities:
+
+```
+vehicle.vehicle.travelledDistance
+vehicle.drivetrain.lastRemainingRange
+vehicle.drivetrain.electricEngine.kombiRemainingElectricRange
+vehicle.powertrain.electric.range.target
+vehicle.chassis.axle.row1.wheel.left.tire.pressure
+vehicle.chassis.axle.row1.wheel.right.tire.pressure
+vehicle.chassis.axle.row2.wheel.left.tire.pressure
+vehicle.chassis.axle.row2.wheel.right.tire.pressure
+vehicle.drivetrain.electricEngine.charging.profile.climatizationActive
+vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete
+```
+
+> **Tip**: You can add additional keys from BMW's Telematics Data Catalogue. The integration will automatically create entities for any new keys it receives.
+
 ## License
 
 This project is provided as-is for personal use with the BMW CarData API.
-
-## Acknowledgments
-
-- BMW CarData API documentation
-- Home Assistant custom component development guidelines
