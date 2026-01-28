@@ -67,6 +67,12 @@
       },
       "rear_right_tire_pressure": {
         "name": "Rear Right Tire Pressure"
+      },
+      "battery_state_of_charge": {
+        "name": "Battery State of Charge"
+      },
+      "fuel_level": {
+        "name": "Fuel Level"
       }
     },
     "binary_sensor": {
@@ -75,6 +81,30 @@
       },
       "charging_profile_complete": {
         "name": "Charging Profile Complete"
+      },
+      "trunk": {
+        "name": "Trunk"
+      },
+      "hood": {
+        "name": "Hood"
+      },
+      "trunk_lock": {
+        "name": "Trunk Lock"
+      },
+      "charging_port": {
+        "name": "Charging Port"
+      },
+      "driver_door": {
+        "name": "Driver Door"
+      },
+      "front_passenger_door": {
+        "name": "Front Passenger Door"
+      },
+      "rear_left_door": {
+        "name": "Rear Left Door"
+      },
+      "rear_right_door": {
+        "name": "Rear Right Door"
       }
     }
   }

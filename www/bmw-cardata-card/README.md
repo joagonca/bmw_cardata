@@ -86,12 +86,11 @@ When using `entity_prefix`, the card expects entities named as:
 | Electric Range | `{prefix}_electric_range` |
 | Fuel Level | `{prefix}_fuel_level` |
 | Battery SoC | `{prefix}_battery_soc` |
-| Charging Power | `{prefix}_charging_power` |
-| Lock Status | `{prefix}_lock_status` |
 | Front Left Tire | `{prefix}_tire_pressure_fl` |
 | Front Right Tire | `{prefix}_tire_pressure_fr` |
 | Rear Left Tire | `{prefix}_tire_pressure_rl` |
 | Rear Right Tire | `{prefix}_tire_pressure_rr` |
+| Lock Status | `{prefix}_trunk_lock` |
 | Vehicle Image | `camera.{prefix}_image` |
 
 ## Tire Pressure Color Coding

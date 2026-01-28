@@ -91,6 +91,18 @@ KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] 
         "pressure",
         "mdi:car-tire-alert",
     ),
+    "vehicle.electricalSystem.battery.stateOfCharge": (
+        "Battery State of Charge",
+        "%",
+        "battery",
+        "mdi:battery",
+    ),
+    "vehicle.drivetrain.fuelSystem.remainingFuel": (
+        "Fuel Level",
+        "%",
+        None,
+        "mdi:gas-station",
+    ),
 }
 
 # Known binary sensor keys with metadata
@@ -105,6 +117,46 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
         "Charging Profile Complete",
         None,
         "mdi:check-circle",
+    ),
+    "vehicle.body.trunk.isOpen": (
+        "Trunk",
+        "opening",
+        "mdi:car-back",
+    ),
+    "vehicle.body.hood.isOpen": (
+        "Hood",
+        "opening",
+        "mdi:car",
+    ),
+    "vehicle.body.trunk.isLocked": (
+        "Trunk Lock",
+        "lock",
+        "mdi:lock",
+    ),
+    "vehicle.body.chargingPort.status": (
+        "Charging Port",
+        "plug",
+        "mdi:ev-plug-type2",
+    ),
+    "vehicle.cabin.door.row1.driver.isOpen": (
+        "Driver Door",
+        "door",
+        "mdi:car-door",
+    ),
+    "vehicle.cabin.door.row1.passenger.isOpen": (
+        "Front Passenger Door",
+        "door",
+        "mdi:car-door",
+    ),
+    "vehicle.cabin.door.row2.driver.isOpen": (
+        "Rear Left Door",
+        "door",
+        "mdi:car-door",
+    ),
+    "vehicle.cabin.door.row2.passenger.isOpen": (
+        "Rear Right Door",
+        "door",
+        "mdi:car-door",
     ),
 }
 

@@ -533,15 +533,13 @@ class BMWCarDataCard extends LitElement {
     const electricRange = this._getNumericValue("electric_range");
     const fuelLevel = this._getNumericValue("fuel_level");
     const batterySoc = this._getNumericValue("battery_soc");
-    const chargingPower = this._getNumericValue("charging_power");
-    const isLocked = this._getBooleanValue("lock_status");
-    const isCharging = chargingPower !== null && chargingPower > 0;
-
     // Tire pressures
     const tireFL = this._getNumericValue("tire_pressure_fl");
     const tireFR = this._getNumericValue("tire_pressure_fr");
     const tireRL = this._getNumericValue("tire_pressure_rl");
     const tireRR = this._getNumericValue("tire_pressure_rr");
+
+    const isLocked = this._getBooleanValue("trunk_lock");
 
     const vehicleImage = this._getVehicleImageUrl();
 
@@ -555,12 +553,6 @@ class BMWCarDataCard extends LitElement {
               <div class="status-icon ${isLocked ? 'locked' : 'unlocked'}">
                 <ha-icon icon="${isLocked ? 'mdi:lock' : 'mdi:lock-open'}"></ha-icon>
                 ${isLocked ? 'Locked' : 'Unlocked'}
-              </div>
-            ` : ''}
-            ${isCharging ? html`
-              <div class="status-icon charging">
-                <ha-icon icon="mdi:lightning-bolt"></ha-icon>
-                ${chargingPower.toFixed(1)} kW
               </div>
             ` : ''}
           </div>

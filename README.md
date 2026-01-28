@@ -23,13 +23,23 @@ A Home Assistant custom integration for the BMW CarData API, providing real-time
 | Front Right Tire Pressure | Tire pressure | kPa |
 | Rear Left Tire Pressure | Tire pressure | kPa |
 | Rear Right Tire Pressure | Tire pressure | kPa |
+| Battery State of Charge | High-voltage battery level | % |
+| Fuel Level | Remaining fuel | % |
 
 ### Binary Sensors
 
 | Entity | Description |
 |--------|-------------|
-| Charging Climatization | Whether cabin pre-conditioning is active during charging |
-| Charging Profile Complete | Whether Remote Charging Profile configuration is complete |
+| Charging Climatization | Cabin pre-conditioning active during charging |
+| Charging Profile Complete | Remote Charging Profile configuration complete |
+| Trunk | Trunk open/closed |
+| Hood | Hood open/closed |
+| Trunk Lock | Trunk locked/unlocked |
+| Charging Port | Charging port connected |
+| Driver Door | Driver door open/closed |
+| Front Passenger Door | Front passenger door open/closed |
+| Rear Left Door | Rear left door open/closed |
+| Rear Right Door | Rear right door open/closed |
 
 > **Note**: Additional entities are created dynamically when new telemetry keys are discovered via MQTT streaming.
 
@@ -147,6 +157,16 @@ vehicle.chassis.axle.row2.wheel.left.tire.pressure
 vehicle.chassis.axle.row2.wheel.right.tire.pressure
 vehicle.drivetrain.electricEngine.charging.profile.climatizationActive
 vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete
+vehicle.electricalSystem.battery.stateOfCharge
+vehicle.drivetrain.fuelSystem.remainingFuel
+vehicle.body.trunk.isOpen
+vehicle.body.hood.isOpen
+vehicle.body.trunk.isLocked
+vehicle.body.chargingPort.status
+vehicle.cabin.door.row1.driver.isOpen
+vehicle.cabin.door.row1.passenger.isOpen
+vehicle.cabin.door.row2.driver.isOpen
+vehicle.cabin.door.row2.passenger.isOpen
 ```
 
 > **Tip**: You can add additional keys from BMW's Telematics Data Catalogue. The integration will automatically create entities for any new keys it receives.
