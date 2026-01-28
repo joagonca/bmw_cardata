@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "BMW CarData Setup",
+        "description": "Enter your BMW CarData Client ID from the BMW CarData Portal.",
+        "data": {
+          "client_id": "Client ID"
+        }
+      },
+      "auth": {
+        "title": "Authorize with BMW",
+        "description": "Please visit the following URL and enter the code:\n\n**URL:** {url}\n\n**Code:** `{user_code}`\n\nWaiting for authorization..."
+      },
+      "select_vin": {
+        "title": "Select Vehicle",
+        "description": "Select the vehicle to monitor. Only vehicles where you are the PRIMARY user are shown.",
+        "data": {
+          "vin": "Vehicle"
+        }
+      }
+    },
+    "error": {
+      "invalid_client_id": "Invalid Client ID. Please check your BMW CarData Portal.",
+      "auth_timeout": "Authorization timed out. Please try again.",
+      "auth_denied": "Authorization was denied.",
+      "no_vehicles": "No PRIMARY vehicles found in your account.",
+      "vin_permission": "You don't have permission to access this vehicle's data.",
+      "api_error": "Failed to communicate with BMW API.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This vehicle is already configured.",
+      "reauth_successful": "Re-authentication successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "BMW CarData Options",
+        "description": "Configure integration options."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "odometer": {
+        "name": "Odometer"
+      },
+      "total_range": {
+        "name": "Total Range"
+      },
+      "electric_range": {
+        "name": "Electric Range"
+      },
+      "target_electric_range": {
+        "name": "Target Electric Range"
+      },
+      "front_left_tire_pressure": {
+        "name": "Front Left Tire Pressure"
+      },
+      "front_right_tire_pressure": {
+        "name": "Front Right Tire Pressure"
+      },
+      "rear_left_tire_pressure": {
+        "name": "Rear Left Tire Pressure"
+      },
+      "rear_right_tire_pressure": {
+        "name": "Rear Right Tire Pressure"
+      }
+    },
+    "binary_sensor": {
+      "charging_climatization": {
+        "name": "Charging Climatization"
+      },
+      "charging_profile_complete": {
+        "name": "Charging Profile Complete"
+      }
+    }
+  }
+}

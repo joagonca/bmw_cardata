@@ -1,0 +1,11 @@
+{
+  "domain": "bmw_cardata",
+  "name": "BMW CarData",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/your-repo/bmw_cardata",
+  "iot_class": "cloud_push",
+  "requirements": ["httpx>=0.24.0", "paho-mqtt>=2.0.0", "pydantic>=2.0.0"],
+  "version": "0.1.0"
+}
