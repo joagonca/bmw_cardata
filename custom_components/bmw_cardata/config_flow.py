@@ -229,11 +229,25 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
         self._vehicles: list[dict[str, Any]] | None = None
         self._auth_task: asyncio.Task | None = None
 
+    def _get_existing_tokens(self) -> tuple[str, dict[str, Any]] | None:
+        """Get tokens from an existing config entry if available."""
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if CONF_TOKENS in entry.data and CONF_CLIENT_ID in entry.data:
+                return entry.data[CONF_CLIENT_ID], entry.data[CONF_TOKENS]
+        return None
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial step - get client ID."""
+        """Handle the initial step - get client ID or reuse existing credentials."""
         errors: dict[str, str] = {}
+
+        # Check for existing credentials
+        existing = self._get_existing_tokens()
+        if existing:
+            self._client_id, self._tokens = existing
+            # Skip auth, go directly to VIN selection
+            return await self.async_step_select_vin()
 
         if user_input is not None:
             self._client_id = user_input[CONF_CLIENT_ID]

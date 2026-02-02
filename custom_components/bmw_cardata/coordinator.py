@@ -136,11 +136,12 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     # Parse new tokens
                     new_tokens = self._parse_token_response(token_data)
 
-                    # Update config entry with new tokens
-                    new_data = {**self.config_entry.data, CONF_TOKENS: new_tokens}
-                    self.hass.config_entries.async_update_entry(
-                        self.config_entry, data=new_data
-                    )
+                    # Update config entry with new tokens (if entry still exists)
+                    if self.hass.config_entries.async_get_entry(self.config_entry.entry_id):
+                        new_data = {**self.config_entry.data, CONF_TOKENS: new_tokens}
+                        self.hass.config_entries.async_update_entry(
+                            self.config_entry, data=new_data
+                        )
 
                     _LOGGER.debug("Tokens refreshed successfully")
                     return True
@@ -330,9 +331,9 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Handle MQTT reconnection with token refresh."""
         await asyncio.sleep(5)  # Brief delay before reconnect
 
-        # Refresh tokens before reconnecting
-        if self._needs_token_refresh():
-            await self._async_refresh_tokens()
+        # Always refresh tokens before reconnecting to ensure fresh ID token
+        _LOGGER.info("Refreshing tokens before MQTT reconnect")
+        await self._async_refresh_tokens()
 
         # Update MQTT credentials and reconnect
         if self._mqtt_client:
@@ -347,10 +348,13 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self._mqtt_client.username_pw_set(gcid, id_token)
                             try:
                                 self._mqtt_client.reconnect()
+                                _LOGGER.info("MQTT reconnection initiated")
                             except Exception as err:
                                 _LOGGER.error("MQTT reconnect failed: %s", err)
 
                 await self.hass.async_add_executor_job(_reconnect)
+            else:
+                _LOGGER.error("Cannot reconnect MQTT: missing gcid or id_token")
 
     def _on_mqtt_message(
         self,

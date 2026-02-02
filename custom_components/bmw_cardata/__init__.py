@@ -5,9 +5,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from homeassistant.components.frontend import async_register_built_in_panel
-from homeassistant.components.http import StaticPathConfig
-from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -18,54 +15,36 @@ _LOGGER = logging.getLogger(__name__)
 
 type BMWCarDataConfigEntry = ConfigEntry[BMWCarDataCoordinator]
 
-# Card URL path
-CARD_URL = "/bmw_cardata/bmw-cardata-card.js"
-
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the BMW CarData component."""
-    # Register static path for the card
+    return True
+
+
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    """Register frontend resources."""
+    from homeassistant.components.http import StaticPathConfig
+    
     await hass.http.async_register_static_paths([
         StaticPathConfig(
             "/bmw_cardata",
             str(Path(__file__).parent / "www"),
-            cache_headers=True,
+            cache_headers=False,
         )
     ])
-    
-    # Register the card as a Lovelace resource
-    await _async_register_card_resource(hass)
-    
-    return True
-
-
-async def _async_register_card_resource(hass: HomeAssistant) -> None:
-    """Register the card as a Lovelace resource if not already registered."""
-    # Get Lovelace resources
-    if "lovelace" not in hass.data:
-        return
-    
-    lovelace_data = hass.data["lovelace"]
-    if "resources" not in lovelace_data:
-        return
-    
-    resources: ResourceStorageCollection = lovelace_data["resources"]
-    
-    # Check if already registered
-    for resource in resources.async_items():
-        if CARD_URL in resource.get("url", ""):
-            return
-    
-    # Register the card
-    await resources.async_create_item({
-        "url": CARD_URL,
-        "type": "module",
-    })
-    _LOGGER.info("Registered BMW CarData card as Lovelace resource")
+    _LOGGER.info("Registered BMW CarData static path at /bmw_cardata")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BMWCarDataConfigEntry) -> bool:
     """Set up BMW CarData from a config entry."""
+    # Register frontend resources (only once)
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {"frontend_registered": False}
+    
+    if not hass.data[DOMAIN].get("frontend_registered"):
+        await _async_register_frontend(hass)
+        hass.data[DOMAIN]["frontend_registered"] = True
+
     coordinator = BMWCarDataCoordinator(hass, entry)
 
     # Set up the coordinator
