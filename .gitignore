@@ -51,3 +51,4 @@ home-assistant_v2.db-wal
 secrets.yaml
 *.pem
 *.key
+NOTES.md
