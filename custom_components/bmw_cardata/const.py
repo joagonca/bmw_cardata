@@ -34,7 +34,7 @@ MQTT_KEEPALIVE: Final = 60
 MQTT_TOPIC_PATTERN: Final = "{gcid}/{vin}"
 
 # OAuth settings
-DEFAULT_SCOPES: Final = "openid cardata offline_access"
+DEFAULT_SCOPES: Final = "authenticate_user openid cardata:streaming:read cardata:api:read"
 TOKEN_REFRESH_BUFFER: Final = 300  # Refresh 5 minutes before expiry
 
 # Platforms

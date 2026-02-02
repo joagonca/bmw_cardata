@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
-import hashlib
 import json
 import logging
 import ssl
@@ -13,11 +11,11 @@ import time
 from datetime import datetime
 from typing import Any, Callable
 
-import httpx
 import paho.mqtt.client as mqtt
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -26,7 +24,6 @@ from .const import (
     CONF_CLIENT_ID,
     CONF_TOKENS,
     CONF_VIN,
-    DEFAULT_SCOPES,
     DOMAIN,
     MQTT_BROKER_HOST,
     MQTT_BROKER_PORT,
@@ -104,6 +101,9 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_refresh_tokens(self) -> bool:
         """Refresh access tokens."""
+        import asyncio
+        import aiohttp
+
         if not self._is_refresh_token_valid():
             _LOGGER.error("Refresh token expired, re-authentication required")
             return False
@@ -114,34 +114,36 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return False
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
+            session = async_get_clientsession(self.hass)
+
+            form_data = aiohttp.FormData()
+            form_data.add_field("client_id", self._client_id)
+            form_data.add_field("grant_type", "refresh_token")
+            form_data.add_field("refresh_token", refresh_token)
+
+            async with asyncio.timeout(30):
+                async with session.post(
                     TOKEN_ENDPOINT,
-                    data={
-                        "client_id": self._client_id,
-                        "grant_type": "refresh_token",
-                        "refresh_token": refresh_token,
-                    },
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
-                )
+                    data=form_data,
+                ) as response:
+                    if response.status != 200:
+                        text = await response.text()
+                        _LOGGER.error("Token refresh failed: %s", text)
+                        return False
 
-                if response.status_code != 200:
-                    _LOGGER.error("Token refresh failed: %s", response.text)
-                    return False
+                    token_data = await response.json()
 
-                token_data = response.json()
+                    # Parse new tokens
+                    new_tokens = self._parse_token_response(token_data)
 
-                # Parse new tokens
-                new_tokens = self._parse_token_response(token_data)
+                    # Update config entry with new tokens
+                    new_data = {**self.config_entry.data, CONF_TOKENS: new_tokens}
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry, data=new_data
+                    )
 
-                # Update config entry with new tokens
-                new_data = {**self.config_entry.data, CONF_TOKENS: new_tokens}
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, data=new_data
-                )
-
-                _LOGGER.debug("Tokens refreshed successfully")
-                return True
+                    _LOGGER.debug("Tokens refreshed successfully")
+                    return True
 
         except Exception as err:
             _LOGGER.exception("Error refreshing tokens: %s", err)
@@ -149,19 +151,9 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _parse_token_response(self, token_data: dict[str, Any]) -> dict[str, Any]:
         """Parse token response and extract relevant data."""
-        id_token = token_data.get("id_token", "")
-        gcid = self.tokens.get(TOKEN_GCID, "")  # Keep existing if not in new response
-
-        if id_token:
-            try:
-                payload_b64 = id_token.split(".")[1]
-                padding = 4 - len(payload_b64) % 4
-                if padding != 4:
-                    payload_b64 += "=" * padding
-                payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-                gcid = payload.get("sub", gcid)
-            except Exception:
-                pass
+        # GCID is returned directly in the token response per BMW API spec
+        # Fall back to existing GCID if not in refresh response
+        gcid = token_data.get("gcid", self.tokens.get(TOKEN_GCID, ""))
 
         expires_in = token_data.get("expires_in", 3600)
         refresh_expires_in = token_data.get("refresh_expires_in", 1209600)
@@ -185,6 +177,8 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_fetch_initial_data(self) -> dict[str, Any]:
         """Fetch initial data via REST API."""
+        import asyncio
+
         access_token = await self.async_get_access_token()
         if not access_token:
             return {}
@@ -192,19 +186,19 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data: dict[str, Any] = {}
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                # Get basic data
-                response = await client.get(
+            session = async_get_clientsession(self.hass)
+            async with asyncio.timeout(30):
+                async with session.get(
                     f"{API_BASE_URL}/customers/vehicles/{self._vin}/basicData",
                     headers={
                         "Authorization": f"Bearer {access_token}",
                         "x-version": "v1",
                     },
-                )
-                if response.status_code == 200:
-                    basic_data = response.json()
-                    data["basic_data"] = basic_data
-                    _LOGGER.debug("Fetched basic data for %s", self._vin)
+                ) as response:
+                    if response.status == 200:
+                        basic_data = await response.json()
+                        data["basic_data"] = basic_data
+                        _LOGGER.debug("Fetched basic data for %s", self._vin)
 
         except Exception as err:
             _LOGGER.warning("Error fetching initial data: %s", err)

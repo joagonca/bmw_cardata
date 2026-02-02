@@ -10,7 +10,7 @@
       },
       "auth": {
         "title": "Authorize with BMW",
-        "description": "Please visit the following URL and enter the code:\n\n**URL:** {url}\n\n**Code:** `{user_code}`\n\nWaiting for authorization..."
+        "description": "1. Visit: **{url}**\n2. Enter code: **{user_code}**\n3. Log in with your BMW account and authorize\n4. Click **Submit** below after authorizing"
       },
       "select_vin": {
         "title": "Select Vehicle",
@@ -24,6 +24,7 @@
       "invalid_client_id": "Invalid Client ID. Please check your BMW CarData Portal.",
       "auth_timeout": "Authorization timed out. Please try again.",
       "auth_denied": "Authorization was denied.",
+      "auth_failed": "Authorization failed. Make sure you completed authorization before clicking Submit.",
       "no_vehicles": "No PRIMARY vehicles found in your account.",
       "vin_permission": "You don't have permission to access this vehicle's data.",
       "api_error": "Failed to communicate with BMW API.",
@@ -31,7 +32,12 @@
     },
     "abort": {
       "already_configured": "This vehicle is already configured.",
-      "reauth_successful": "Re-authentication successful."
+      "reauth_successful": "Re-authentication successful.",
+      "auth_timeout": "Authorization timed out. Please try again.",
+      "auth_denied": "Authorization was denied.",
+      "auth_failed": "Authorization failed. Please try again.",
+      "api_error": "Failed to communicate with BMW API.",
+      "no_vehicles": "No PRIMARY vehicles found in your account."
     }
   },
   "options": {
