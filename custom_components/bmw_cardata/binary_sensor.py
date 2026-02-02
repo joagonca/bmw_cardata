@@ -12,9 +12,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, KNOWN_BINARY_SENSORS
+from .const import KNOWN_BINARY_SENSORS
 from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
+from .utils import generate_entity_name_from_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,18 +54,18 @@ async def async_setup_entry(
         if key in KNOWN_BINARY_SENSORS:
             return
 
-        _LOGGER.info("Creating dynamic binary sensor for key: %s", key)
-
-        # Generate a readable name from the key
-        name_parts = key.split(".")
-        name = " ".join(name_parts[-2:]).replace("_", " ").title()
+        _LOGGER.info(
+            "[%s] Creating dynamic binary sensor: %s",
+            coordinator.vin[-6:],
+            key,
+        )
 
         async_add_entities(
             [
                 BMWCarDataBinarySensor(
                     coordinator=coordinator,
                     key=key,
-                    name=name,
+                    name=generate_entity_name_from_key(key),
                     device_class=None,
                     icon="mdi:car-info",
                 )

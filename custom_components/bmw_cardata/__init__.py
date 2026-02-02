@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TypeAlias
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_VIN, DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS
 from .coordinator import BMWCarDataCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-type BMWCarDataConfigEntry = ConfigEntry[BMWCarDataCoordinator]
+BMWCarDataConfigEntry: TypeAlias = ConfigEntry[BMWCarDataCoordinator]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

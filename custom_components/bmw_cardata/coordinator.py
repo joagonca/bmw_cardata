@@ -14,7 +14,7 @@ from typing import Any, Callable
 import paho.mqtt.client as mqtt
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -38,6 +38,7 @@ from .const import (
     TOKEN_REFRESH_BUFFER,
     TOKEN_REFRESH_EXPIRES_AT,
 )
+from .utils import format_token_expiry, parse_token_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,12 +106,15 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         import aiohttp
 
         if not self._is_refresh_token_valid():
-            _LOGGER.error("Refresh token expired, re-authentication required")
+            _LOGGER.error(
+                "[%s] Refresh token expired, re-authentication required",
+                self._vin[-6:],
+            )
             return False
 
         refresh_token = self.tokens.get(TOKEN_REFRESH)
         if not refresh_token:
-            _LOGGER.error("No refresh token available")
+            _LOGGER.error("[%s] No refresh token available", self._vin[-6:])
             return False
 
         try:
@@ -128,13 +132,18 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ) as response:
                     if response.status != 200:
                         text = await response.text()
-                        _LOGGER.error("Token refresh failed: %s", text)
+                        _LOGGER.error(
+                            "[%s] Token refresh failed (HTTP %d): %s",
+                            self._vin[-6:],
+                            response.status,
+                            text[:200],
+                        )
                         return False
 
                     token_data = await response.json()
 
-                    # Parse new tokens
-                    new_tokens = self._parse_token_response(token_data)
+                    # Parse new tokens using shared utility
+                    new_tokens = parse_token_response(token_data, self.tokens)
 
                     # Update config entry with new tokens (if entry still exists)
                     if self.hass.config_entries.async_get_entry(self.config_entry.entry_id):
@@ -143,32 +152,19 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.config_entry, data=new_data
                         )
 
-                    _LOGGER.debug("Tokens refreshed successfully")
+                    _LOGGER.info(
+                        "[%s] Tokens refreshed, expires in %s",
+                        self._vin[-6:],
+                        format_token_expiry(new_tokens[TOKEN_EXPIRES_AT]),
+                    )
                     return True
 
-        except Exception as err:
-            _LOGGER.exception("Error refreshing tokens: %s", err)
+        except asyncio.TimeoutError:
+            _LOGGER.error("[%s] Token refresh timed out", self._vin[-6:])
             return False
-
-    def _parse_token_response(self, token_data: dict[str, Any]) -> dict[str, Any]:
-        """Parse token response and extract relevant data."""
-        # GCID is returned directly in the token response per BMW API spec
-        # Fall back to existing GCID if not in refresh response
-        gcid = token_data.get("gcid", self.tokens.get(TOKEN_GCID, ""))
-
-        expires_in = token_data.get("expires_in", 3600)
-        refresh_expires_in = token_data.get("refresh_expires_in", 1209600)
-
-        return {
-            TOKEN_ACCESS: token_data.get("access_token"),
-            TOKEN_REFRESH: token_data.get("refresh_token", self.tokens.get(TOKEN_REFRESH)),
-            TOKEN_ID: token_data.get("id_token"),
-            TOKEN_GCID: gcid,
-            TOKEN_EXPIRES_AT: int(time.time()) + expires_in,
-            TOKEN_REFRESH_EXPIRES_AT: self.tokens.get(
-                TOKEN_REFRESH_EXPIRES_AT, int(time.time()) + refresh_expires_in
-            ),
-        }
+        except Exception as err:
+            _LOGGER.error("[%s] Token refresh error: %s", self._vin[-6:], err)
+            return False
 
     async def async_get_access_token(self) -> str | None:
         """Get a valid access token, refreshing if necessary."""
@@ -182,6 +178,7 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         access_token = await self.async_get_access_token()
         if not access_token:
+            _LOGGER.warning("[%s] No access token for initial data fetch", self._vin[-6:])
             return {}
 
         data: dict[str, Any] = {}
@@ -199,10 +196,18 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     if response.status == 200:
                         basic_data = await response.json()
                         data["basic_data"] = basic_data
-                        _LOGGER.debug("Fetched basic data for %s", self._vin)
+                        _LOGGER.debug("[%s] Fetched basic vehicle data", self._vin[-6:])
+                    else:
+                        _LOGGER.warning(
+                            "[%s] Failed to fetch basic data (HTTP %d)",
+                            self._vin[-6:],
+                            response.status,
+                        )
 
+        except asyncio.TimeoutError:
+            _LOGGER.warning("[%s] Timeout fetching initial data", self._vin[-6:])
         except Exception as err:
-            _LOGGER.warning("Error fetching initial data: %s", err)
+            _LOGGER.warning("[%s] Error fetching initial data: %s", self._vin[-6:], err)
 
         return data
 
@@ -231,7 +236,7 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         id_token = self.tokens.get(TOKEN_ID)
 
         if not gcid or not id_token:
-            _LOGGER.error("Missing GCID or ID token for MQTT connection")
+            _LOGGER.error("[%s] Missing GCID or ID token for MQTT", self._vin[-6:])
             return
 
         def _create_and_connect():
@@ -269,9 +274,14 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._mqtt_client = await self.hass.async_add_executor_job(
                 _create_and_connect
             )
-            _LOGGER.debug("MQTT client created for VIN %s", self._vin)
+            _LOGGER.info(
+                "[%s] MQTT client connecting to %s:%d",
+                self._vin[-6:],
+                MQTT_BROKER_HOST,
+                MQTT_BROKER_PORT,
+            )
         except Exception as err:
-            _LOGGER.error("Failed to create MQTT client: %s", err)
+            _LOGGER.error("[%s] Failed to create MQTT client: %s", self._vin[-6:], err)
 
     async def _async_stop_mqtt(self) -> None:
         """Stop MQTT connection."""
@@ -298,15 +308,18 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Handle MQTT connection."""
         if reason_code == mqtt.CONNACK_ACCEPTED or reason_code.value == 0:
             self._mqtt_connected = True
-            _LOGGER.info("Connected to BMW CarData streaming for VIN %s", self._vin)
 
             # Subscribe to vehicle topic
             gcid = self.tokens.get(TOKEN_GCID, "")
             topic = MQTT_TOPIC_PATTERN.format(gcid=gcid, vin=self._vin)
             client.subscribe(topic, qos=1)
-            _LOGGER.debug("Subscribed to MQTT topic: %s", topic)
+            _LOGGER.info("[%s] MQTT connected, subscribed to streaming", self._vin[-6:])
         else:
-            _LOGGER.error("MQTT connection failed with code: %s", reason_code)
+            _LOGGER.error(
+                "[%s] MQTT connection failed: %s",
+                self._vin[-6:],
+                reason_code,
+            )
             self._mqtt_connected = False
 
     def _on_mqtt_disconnect(
@@ -319,7 +332,11 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> None:
         """Handle MQTT disconnection."""
         self._mqtt_connected = False
-        _LOGGER.warning("Disconnected from BMW CarData streaming: %s", reason_code)
+        _LOGGER.warning(
+            "[%s] MQTT disconnected: %s",
+            self._vin[-6:],
+            reason_code,
+        )
 
         # Schedule reconnection
         self.hass.loop.call_soon_threadsafe(
@@ -332,8 +349,10 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await asyncio.sleep(5)  # Brief delay before reconnect
 
         # Always refresh tokens before reconnecting to ensure fresh ID token
-        _LOGGER.info("Refreshing tokens before MQTT reconnect")
-        await self._async_refresh_tokens()
+        _LOGGER.info("[%s] Refreshing tokens before MQTT reconnect", self._vin[-6:])
+        if not await self._async_refresh_tokens():
+            _LOGGER.error("[%s] Token refresh failed, cannot reconnect", self._vin[-6:])
+            return
 
         # Update MQTT credentials and reconnect
         if self._mqtt_client:
@@ -348,13 +367,13 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self._mqtt_client.username_pw_set(gcid, id_token)
                             try:
                                 self._mqtt_client.reconnect()
-                                _LOGGER.info("MQTT reconnection initiated")
+                                _LOGGER.info("[%s] MQTT reconnection initiated", self._vin[-6:])
                             except Exception as err:
-                                _LOGGER.error("MQTT reconnect failed: %s", err)
+                                _LOGGER.error("[%s] MQTT reconnect failed: %s", self._vin[-6:], err)
 
                 await self.hass.async_add_executor_job(_reconnect)
             else:
-                _LOGGER.error("Cannot reconnect MQTT: missing gcid or id_token")
+                _LOGGER.error("[%s] Cannot reconnect: missing credentials", self._vin[-6:])
 
     def _on_mqtt_message(
         self,
@@ -367,7 +386,13 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             payload_str = message.payload.decode("utf-8")
             payload_data = json.loads(payload_str)
 
-            _LOGGER.debug("Received MQTT message: %s", payload_data)
+            # Log summary instead of raw payload
+            data_keys = list(payload_data.get("data", {}).keys())
+            _LOGGER.debug(
+                "[%s] MQTT message: %d telemetry keys",
+                self._vin[-6:],
+                len(data_keys),
+            )
 
             # Schedule update on HA event loop
             self.hass.loop.call_soon_threadsafe(
@@ -376,9 +401,9 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
         except (json.JSONDecodeError, UnicodeDecodeError) as err:
-            _LOGGER.warning("Failed to parse MQTT message: %s", err)
+            _LOGGER.warning("[%s] Failed to parse MQTT message: %s", self._vin[-6:], err)
         except Exception as err:
-            _LOGGER.exception("Error processing MQTT message: %s", err)
+            _LOGGER.error("[%s] Error processing MQTT message: %s", self._vin[-6:], err)
 
     async def _async_process_mqtt_data(self, payload: dict[str, Any]) -> None:
         """Process MQTT data and update entities."""
@@ -407,28 +432,29 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if key not in ALL_KNOWN_KEYS and key not in self._discovered_keys:
                 self._discovered_keys.add(key)
                 _LOGGER.info(
-                    "Discovered new telemetry key: %s = %s (consider adding to const.py)",
+                    "[%s] New telemetry key: %s (type=%s, add to const.py for custom config)",
+                    self._vin[-6:],
                     key,
-                    actual_value,
+                    type(actual_value).__name__,
                 )
                 # Notify callbacks about new key
                 for cb in self._new_key_callbacks:
                     try:
                         cb(key, actual_value)
                     except Exception as err:
-                        _LOGGER.error("Error in new key callback: %s", err)
+                        _LOGGER.error("[%s] New key callback error: %s", self._vin[-6:], err)
 
         if updated:
             self.async_set_updated_data(self.data)
 
     def register_new_key_callback(
-        self, callback: Callable[[str, Any], None]
+        self, cb: Callable[[str, Any], None]
     ) -> Callable[[], None]:
         """Register a callback for newly discovered keys."""
-        self._new_key_callbacks.append(callback)
+        self._new_key_callbacks.append(cb)
 
         def remove():
-            self._new_key_callbacks.remove(callback)
+            self._new_key_callbacks.remove(cb)
 
         return remove
 

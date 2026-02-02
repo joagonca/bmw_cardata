@@ -7,7 +7,6 @@ import base64
 import hashlib
 import logging
 import secrets
-import time
 from typing import Any
 
 import voluptuous as vol
@@ -27,12 +26,8 @@ from .const import (
     DOMAIN,
     TOKEN_ACCESS,
     TOKEN_ENDPOINT,
-    TOKEN_EXPIRES_AT,
-    TOKEN_GCID,
-    TOKEN_ID,
-    TOKEN_REFRESH,
-    TOKEN_REFRESH_EXPIRES_AT,
 )
+from .utils import parse_token_response
 
 _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -54,8 +49,6 @@ async def _request_device_code(
     hass: HomeAssistant, client_id: str, code_challenge: str
 ) -> dict[str, Any]:
     """Request device code from BMW."""
-    import aiohttp
-
     data = {
         "client_id": client_id,
         "response_type": "device_code",
@@ -82,7 +75,9 @@ async def _request_device_code(
         response.raise_for_status()
         return response.json()
 
-    return await hass.async_add_executor_job(_do_request)
+    result = await hass.async_add_executor_job(_do_request)
+    _LOGGER.debug("Device code requested, expires in %ds", result.get("expires_in", 0))
+    return result
 
 
 async def _poll_for_token(
@@ -102,7 +97,6 @@ async def _poll_for_token(
     async with aiohttp.ClientSession(timeout=timeout) as session:
         for attempt in range(max_attempts):
             await asyncio.sleep(interval)
-            _LOGGER.debug("Polling for token, attempt %d/%d", attempt + 1, max_attempts)
 
             data = {
                 "client_id": client_id,
@@ -116,22 +110,28 @@ async def _poll_for_token(
                 data=data,
             ) as response:
                 if response.status == 200:
-                    _LOGGER.debug("Token received successfully")
+                    _LOGGER.info("OAuth authorization completed successfully")
                     return await response.json()
 
                 error_data = await response.json()
                 error = error_data.get("error", "")
 
                 if error == "authorization_pending":
+                    if attempt % 6 == 0:  # Log every 30s (assuming 5s interval)
+                        _LOGGER.debug("Waiting for user authorization (attempt %d/%d)", attempt + 1, max_attempts)
                     continue
                 elif error == "slow_down":
                     interval += 5
+                    _LOGGER.debug("Slowing down polling to %ds interval", interval)
                     continue
                 elif error == "expired_token":
+                    _LOGGER.warning("Device code expired before user authorized")
                     raise AuthTimeoutError()
                 elif error == "access_denied":
+                    _LOGGER.warning("User denied authorization")
                     raise AuthDeniedError()
                 else:
+                    _LOGGER.error("Token request error: %s", error_data.get("error_description", error))
                     raise AuthError(error_data.get("error_description", f"Error: {error}"))
 
     raise AuthTimeoutError()
@@ -153,7 +153,9 @@ async def _get_vehicles(
             },
         ) as response:
             response.raise_for_status()
-            return await response.json()
+            vehicles = await response.json()
+            _LOGGER.debug("Found %d vehicle mappings", len(vehicles))
+            return vehicles
 
 
 async def _get_basic_data(
@@ -172,27 +174,17 @@ async def _get_basic_data(
             },
         ) as response:
             if response.status == 403:
+                _LOGGER.warning("No permission to access VIN %s", vin[-6:])
                 raise VINPermissionError()
             response.raise_for_status()
-            return await response.json()
-
-
-def _parse_token_response(token_data: dict[str, Any]) -> dict[str, Any]:
-    """Parse token response and extract relevant data."""
-    # GCID is returned directly in the token response per BMW API spec
-    gcid = token_data.get("gcid", "")
-
-    expires_in = token_data.get("expires_in", 3600)
-    refresh_expires_in = token_data.get("refresh_expires_in", 1209600)  # 2 weeks default
-
-    return {
-        TOKEN_ACCESS: token_data.get("access_token"),
-        TOKEN_REFRESH: token_data.get("refresh_token"),
-        TOKEN_ID: token_data.get("id_token"),
-        TOKEN_GCID: gcid,
-        TOKEN_EXPIRES_AT: int(time.time()) + expires_in,
-        TOKEN_REFRESH_EXPIRES_AT: int(time.time()) + refresh_expires_in,
-    }
+            data = await response.json()
+            _LOGGER.debug(
+                "Vehicle: %s %s (%s)",
+                data.get("brand", "?"),
+                data.get("modelName", "?"),
+                vin[-6:],
+            )
+            return data
 
 
 class InvalidClientError(Exception):
@@ -264,7 +256,7 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
             except InvalidClientError:
                 errors["base"] = "invalid_client_id"
             except Exception as err:
-                _LOGGER.exception("Error requesting device code: %s", err)
+                _LOGGER.error("Device code request failed: %s", err)
                 errors["base"] = "api_error"
 
         return self.async_show_form(
@@ -299,14 +291,14 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._device_code_response.get("interval", 5),
                     self._device_code_response.get("expires_in", 600),
                 )
-                self._tokens = _parse_token_response(token_data)
+                self._tokens = parse_token_response(token_data)
                 return await self.async_step_select_vin()
             except AuthTimeoutError:
                 return self.async_abort(reason="auth_timeout")
             except AuthDeniedError:
                 return self.async_abort(reason="auth_denied")
             except Exception as err:
-                _LOGGER.exception("Auth error: %s", err)
+                _LOGGER.error("Auth polling failed: %s", err)
                 errors["base"] = "auth_failed"
 
         # Show form with URL and code
@@ -341,7 +333,7 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                     if v.get("mappingType") == "PRIMARY"
                 ]
             except Exception as err:
-                _LOGGER.exception("Error fetching vehicles: %s", err)
+                _LOGGER.error("Failed to fetch vehicles: %s", err)
                 return self.async_abort(reason="api_error")
 
         if not self._vehicles:
@@ -379,7 +371,7 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
             except VINPermissionError:
                 errors["base"] = "vin_permission"
             except Exception as err:
-                _LOGGER.exception("Error validating VIN: %s", err)
+                _LOGGER.error("VIN validation failed for %s: %s", vin[-6:], err)
                 errors["base"] = "api_error"
 
         # Build VIN selector
