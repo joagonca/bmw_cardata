@@ -91,7 +91,7 @@ KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] 
         "pressure",
         "mdi:car-tire-alert",
     ),
-    "vehicle.electricalSystem.battery.stateOfCharge": (
+    "vehicle.drivetrain.batteryManagement.maxEnergy": (
         "Battery State of Charge",
         "%",
         "battery",
