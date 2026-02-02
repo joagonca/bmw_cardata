@@ -35,11 +35,6 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-# Log at module load time
-print("BMW CarData config_flow module loaded")
-_LOGGER.warning("BMW CarData config_flow module loaded")
-
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_CLIENT_ID): cv.string,
@@ -61,8 +56,6 @@ async def _request_device_code(
     """Request device code from BMW."""
     import aiohttp
 
-    _LOGGER.warning("BMW CarData: Starting device code request")
-
     data = {
         "client_id": client_id,
         "response_type": "device_code",
@@ -75,26 +68,21 @@ async def _request_device_code(
         """Execute the HTTP request in executor."""
         import requests
 
-        _LOGGER.warning("BMW CarData: Sending POST to %s", DEVICE_CODE_ENDPOINT)
         response = requests.post(
             DEVICE_CODE_ENDPOINT,
             data=data,
             timeout=30,
         )
-        _LOGGER.warning("BMW CarData: Response status %s", response.status_code)
 
         if response.status_code == 400:
             error_data = response.json()
-            _LOGGER.warning("BMW CarData: Error response: %s", error_data)
             if error_data.get("error") == "invalid_client":
                 raise InvalidClientError()
             raise AuthError(error_data.get("error_description", "Unknown error"))
         response.raise_for_status()
         return response.json()
 
-    result = await hass.async_add_executor_job(_do_request)
-    _LOGGER.warning("BMW CarData: Device code received successfully")
-    return result
+    return await hass.async_add_executor_job(_do_request)
 
 
 async def _poll_for_token(
@@ -245,26 +233,21 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step - get client ID."""
-        _LOGGER.warning("BMW CarData: async_step_user called, user_input=%s", user_input is not None)
         errors: dict[str, str] = {}
 
         if user_input is not None:
             self._client_id = user_input[CONF_CLIENT_ID]
-            _LOGGER.warning("BMW CarData: Client ID received, generating PKCE")
 
             # Generate PKCE parameters
             self._code_verifier, code_challenge = _generate_pkce()
-            _LOGGER.warning("BMW CarData: PKCE generated, requesting device code")
 
             try:
                 # Request device code
                 self._device_code_response = await _request_device_code(
                     self.hass, self._client_id, code_challenge
                 )
-                _LOGGER.warning("BMW CarData: Device code received, proceeding to auth step")
                 return await self.async_step_auth()
             except InvalidClientError:
-                _LOGGER.warning("BMW CarData: Invalid client ID")
                 errors["base"] = "invalid_client_id"
             except Exception as err:
                 _LOGGER.exception("Error requesting device code: %s", err)
@@ -280,8 +263,6 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the auth step - show URL and code, poll when user confirms."""
-        _LOGGER.warning("BMW CarData: async_step_auth called, user_input=%s", user_input)
-        
         if self._device_code_response is None:
             return await self.async_step_user()
 
@@ -295,8 +276,6 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             # User clicked confirm, start polling for token
-            _LOGGER.warning("BMW CarData: User confirmed, polling for token")
-            
             try:
                 token_data = await _poll_for_token(
                     self.hass,
@@ -307,16 +286,13 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._device_code_response.get("expires_in", 600),
                 )
                 self._tokens = _parse_token_response(token_data)
-                _LOGGER.warning("BMW CarData: Token received, proceeding to VIN selection")
                 return await self.async_step_select_vin()
             except AuthTimeoutError:
-                _LOGGER.warning("BMW CarData: Auth timeout")
                 return self.async_abort(reason="auth_timeout")
             except AuthDeniedError:
-                _LOGGER.warning("BMW CarData: Auth denied")
                 return self.async_abort(reason="auth_denied")
             except Exception as err:
-                _LOGGER.exception("BMW CarData: Auth error: %s", err)
+                _LOGGER.exception("Auth error: %s", err)
                 errors["base"] = "auth_failed"
 
         # Show form with URL and code

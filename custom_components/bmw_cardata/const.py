@@ -28,8 +28,8 @@ DEVICE_CODE_ENDPOINT: Final = f"{AUTH_BASE_URL}/gcdm/oauth/device/code"
 TOKEN_ENDPOINT: Final = f"{AUTH_BASE_URL}/gcdm/oauth/token"
 
 # MQTT settings
-MQTT_BROKER_HOST: Final = "api-cardata-streaming.bmwgroup.com"
-MQTT_BROKER_PORT: Final = 8883
+MQTT_BROKER_HOST: Final = "customer.streaming-cardata.bmwgroup.com"
+MQTT_BROKER_PORT: Final = 9000
 MQTT_KEEPALIVE: Final = 60
 MQTT_TOPIC_PATTERN: Final = "{gcid}/{vin}"
 

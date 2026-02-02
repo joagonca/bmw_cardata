@@ -380,11 +380,22 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Process MQTT data and update entities."""
         updated = False
 
-        for key, value in payload.items():
+        # Data is nested inside 'data' key
+        data_payload = payload.get("data", {})
+        
+        for key, value_obj in data_payload.items():
+            # value_obj has structure: {'timestamp': '...', 'value': ...}
+            if isinstance(value_obj, dict) and "value" in value_obj:
+                actual_value = value_obj.get("value")
+                timestamp = value_obj.get("timestamp", datetime.utcnow().isoformat())
+            else:
+                actual_value = value_obj
+                timestamp = datetime.utcnow().isoformat()
+            
             # Store the value
             self.data[key] = {
-                "value": value,
-                "timestamp": datetime.utcnow().isoformat(),
+                "value": actual_value,
+                "timestamp": timestamp,
             }
             updated = True
 
@@ -394,12 +405,12 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.info(
                     "Discovered new telemetry key: %s = %s (consider adding to const.py)",
                     key,
-                    value,
+                    actual_value,
                 )
                 # Notify callbacks about new key
                 for cb in self._new_key_callbacks:
                     try:
-                        cb(key, value)
+                        cb(key, actual_value)
                     except Exception as err:
                         _LOGGER.error("Error in new key callback: %s", err)
 
