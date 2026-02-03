@@ -19,8 +19,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
-    ALL_KNOWN_KEYS,
     API_BASE_URL,
+    KNOWN_BINARY_SENSORS,
+    KNOWN_SENSORS,
     CONF_CLIENT_ID,
     CONF_TOKENS,
     CONF_VIN,
@@ -102,7 +103,6 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_refresh_tokens(self) -> bool:
         """Refresh access tokens."""
-        import asyncio
         import aiohttp
 
         if not self._is_refresh_token_valid():
@@ -174,8 +174,6 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_fetch_initial_data(self) -> dict[str, Any]:
         """Fetch initial data via REST API."""
-        import asyncio
-
         access_token = await self.async_get_access_token()
         if not access_token:
             _LOGGER.warning("[%s] No access token for initial data fetch", self._vin[-6:])
@@ -429,7 +427,7 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             updated = True
 
             # Check for unknown keys
-            if key not in ALL_KNOWN_KEYS and key not in self._discovered_keys:
+            if key not in KNOWN_SENSORS and key not in KNOWN_BINARY_SENSORS and key not in self._discovered_keys:
                 self._discovered_keys.add(key)
                 _LOGGER.info(
                     "[%s] New telemetry key: %s (type=%s, add to const.py for custom config)",

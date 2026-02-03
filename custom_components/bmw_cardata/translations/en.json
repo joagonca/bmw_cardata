@@ -10,7 +10,7 @@
       },
       "auth": {
         "title": "Authorize with BMW",
-        "description": "Please visit the following URL and enter the code:\n\n**URL:** {url}\n\n**Code:** `{user_code}`\n\nWaiting for authorization..."
+        "description": "1. Visit: **{url}**\n2. Enter code: **{user_code}**\n3. Log in with your BMW account and authorize\n4. Click **Submit** below after authorizing"
       },
       "select_vin": {
         "title": "Select Vehicle",
@@ -24,6 +24,7 @@
       "invalid_client_id": "Invalid Client ID. Please check your BMW CarData Portal.",
       "auth_timeout": "Authorization timed out. Please try again.",
       "auth_denied": "Authorization was denied.",
+      "auth_failed": "Authorization failed. Make sure you completed authorization before clicking Submit.",
       "no_vehicles": "No PRIMARY vehicles found in your account.",
       "vin_permission": "You don't have permission to access this vehicle's data.",
       "api_error": "Failed to communicate with BMW API.",
@@ -31,7 +32,12 @@
     },
     "abort": {
       "already_configured": "This vehicle is already configured.",
-      "reauth_successful": "Re-authentication successful."
+      "reauth_successful": "Re-authentication successful.",
+      "auth_timeout": "Authorization timed out. Please try again.",
+      "auth_denied": "Authorization was denied.",
+      "auth_failed": "Authorization failed. Please try again.",
+      "api_error": "Failed to communicate with BMW API.",
+      "no_vehicles": "No PRIMARY vehicles found in your account."
     }
   },
   "options": {
@@ -39,72 +45,6 @@
       "init": {
         "title": "BMW CarData Options",
         "description": "Configure integration options."
-      }
-    }
-  },
-  "entity": {
-    "sensor": {
-      "odometer": {
-        "name": "Odometer"
-      },
-      "total_range": {
-        "name": "Total Range"
-      },
-      "electric_range": {
-        "name": "Electric Range"
-      },
-      "target_electric_range": {
-        "name": "Target Electric Range"
-      },
-      "front_left_tire_pressure": {
-        "name": "Front Left Tire Pressure"
-      },
-      "front_right_tire_pressure": {
-        "name": "Front Right Tire Pressure"
-      },
-      "rear_left_tire_pressure": {
-        "name": "Rear Left Tire Pressure"
-      },
-      "rear_right_tire_pressure": {
-        "name": "Rear Right Tire Pressure"
-      },
-      "battery_state_of_charge": {
-        "name": "Battery State of Charge"
-      },
-      "fuel_level": {
-        "name": "Fuel Level"
-      }
-    },
-    "binary_sensor": {
-      "charging_climatization": {
-        "name": "Charging Climatization"
-      },
-      "charging_profile_complete": {
-        "name": "Charging Profile Complete"
-      },
-      "trunk": {
-        "name": "Trunk"
-      },
-      "hood": {
-        "name": "Hood"
-      },
-      "trunk_lock": {
-        "name": "Trunk Lock"
-      },
-      "charging_port": {
-        "name": "Charging Port"
-      },
-      "driver_door": {
-        "name": "Driver Door"
-      },
-      "front_passenger_door": {
-        "name": "Front Passenger Door"
-      },
-      "rear_left_door": {
-        "name": "Rear Left Door"
-      },
-      "rear_right_door": {
-        "name": "Rear Right Door"
       }
     }
   }

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TypeAlias
 
 from homeassistant.config_entries import ConfigEntry
@@ -10,8 +9,6 @@ from homeassistant.core import HomeAssistant
 
 from .const import PLATFORMS
 from .coordinator import BMWCarDataCoordinator
-
-_LOGGER = logging.getLogger(__name__)
 
 BMWCarDataConfigEntry: TypeAlias = ConfigEntry[BMWCarDataCoordinator]
 

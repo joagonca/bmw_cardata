@@ -159,6 +159,3 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
         "mdi:car-door",
     ),
 }
-
-# All known keys for reference
-ALL_KNOWN_KEYS: Final = set(KNOWN_SENSORS.keys()) | set(KNOWN_BINARY_SENSORS.keys())

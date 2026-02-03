@@ -9,6 +9,7 @@ import logging
 import secrets
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
@@ -89,8 +90,6 @@ async def _poll_for_token(
     expires_in: int,
 ) -> dict[str, Any]:
     """Poll for access token after user authorizes."""
-    import aiohttp
-
     max_attempts = expires_in // interval
     timeout = aiohttp.ClientTimeout(total=30)
 
@@ -141,8 +140,6 @@ async def _get_vehicles(
     hass: HomeAssistant, access_token: str
 ) -> list[dict[str, Any]]:
     """Get list of mapped vehicles."""
-    import aiohttp
-
     timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(
@@ -162,8 +159,6 @@ async def _get_basic_data(
     hass: HomeAssistant, access_token: str, vin: str
 ) -> dict[str, Any]:
     """Get basic vehicle data to validate VIN access."""
-    import aiohttp
-
     timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(
@@ -219,7 +214,6 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
         self._device_code_response: dict[str, Any] | None = None
         self._tokens: dict[str, Any] | None = None
         self._vehicles: list[dict[str, Any]] | None = None
-        self._auth_task: asyncio.Task | None = None
 
     def _get_existing_tokens(self) -> tuple[str, dict[str, Any]] | None:
         """Get tokens from an existing config entry if available."""
