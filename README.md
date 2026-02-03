@@ -171,38 +171,6 @@ vehicle.cabin.door.row2.passenger.isOpen
 
 > **Tip**: You can add additional keys from BMW's Telematics Data Catalogue. The integration will automatically create entities for any new keys it receives.
 
-## Lovelace Card
-
-A custom Lovelace card is included for visualizing your vehicle data.
-
-### Features
-
-- Vehicle profile image with top-down tire pressure diagram
-- Color-coded tire pressures (green/yellow/red)
-- Progress bars for range, fuel, and battery
-- Animated charging indicator
-- Lock status display
-- Theme-adaptive design
-
-### Installation
-
-1. Copy `www/bmw-cardata-card/` to your `config/www/` directory
-2. Add resource in **Settings → Dashboards → Resources**:
-   - URL: `/local/bmw-cardata-card/bmw-cardata-card.js`
-   - Type: JavaScript Module
-
-### Usage
-
-```yaml
-type: custom:bmw-cardata-card
-entity_prefix: sensor.bmw_330e
-tire_thresholds:
-  low: 200
-  critical: 180
-```
-
-See [www/bmw-cardata-card/README.md](www/bmw-cardata-card/README.md) for full configuration options.
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
