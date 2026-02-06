@@ -247,13 +247,9 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             client.username_pw_set(gcid, id_token)
 
-            client.tls_set(
-                ca_certs=None,
-                certfile=None,
-                keyfile=None,
-                cert_reqs=ssl.CERT_REQUIRED,
-                tls_version=ssl.PROTOCOL_TLS_CLIENT,
-            )
+            # Use modern SSL context approach for better compatibility
+            ssl_context = ssl.create_default_context()
+            client.tls_set_context(ssl_context)
 
             client.on_connect = self._on_mqtt_connect
             client.on_disconnect = self._on_mqtt_disconnect
