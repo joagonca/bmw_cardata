@@ -145,3 +145,11 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
             return int(value)
         except (ValueError, TypeError):
             return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return extra state attributes."""
+        timestamp = self._get_timestamp()
+        if timestamp:
+            return {"last_changed": timestamp}
+        return None

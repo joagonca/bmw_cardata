@@ -51,15 +51,16 @@ class BMWCarDataDeviceTracker(BMWCarDataEntity, TrackerEntity):
         )
         # Override unique_id to be simpler for the tracker
         self._attr_unique_id = f"{coordinator.vin}_device_tracker"
+        # Cache location values
+        self._last_latitude: float | None = None
+        self._last_longitude: float | None = None
+        self._last_altitude: float | None = None
 
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        # Available if we have at least latitude and longitude
-        return (
-            LOCATION_LATITUDE_KEY in self.coordinator.data
-            and LOCATION_LONGITUDE_KEY in self.coordinator.data
-        )
+        # Available if MQTT is connected and we've received location data
+        return self.coordinator.is_mqtt_connected and self._has_received_data
 
     @property
     def source_type(self) -> SourceType:
@@ -70,34 +71,42 @@ class BMWCarDataDeviceTracker(BMWCarDataEntity, TrackerEntity):
     def latitude(self) -> float | None:
         """Return latitude value of the device."""
         data = self.coordinator.data.get(LOCATION_LATITUDE_KEY)
-        if data is None:
-            return None
-        value = data.get("value") if isinstance(data, dict) else data
-        if isinstance(value, (int, float)):
-            return float(value)
-        return None
+        if data is not None:
+            value = data.get("value") if isinstance(data, dict) else data
+            if isinstance(value, (int, float)):
+                self._last_latitude = float(value)
+                self._has_received_data = True
+        return self._last_latitude
 
     @property
     def longitude(self) -> float | None:
         """Return longitude value of the device."""
         data = self.coordinator.data.get(LOCATION_LONGITUDE_KEY)
-        if data is None:
-            return None
-        value = data.get("value") if isinstance(data, dict) else data
-        if isinstance(value, (int, float)):
-            return float(value)
-        return None
+        if data is not None:
+            value = data.get("value") if isinstance(data, dict) else data
+            if isinstance(value, (int, float)):
+                self._last_longitude = float(value)
+                self._has_received_data = True
+        return self._last_longitude
 
     @property
-    def extra_state_attributes(self) -> dict[str, float | None]:
+    def extra_state_attributes(self) -> dict[str, float | str | None]:
         """Return extra state attributes."""
-        attrs = {}
+        attrs: dict[str, float | str | None] = {}
         
         # Add altitude if available
         altitude_data = self.coordinator.data.get(LOCATION_ALTITUDE_KEY)
         if altitude_data is not None:
             value = altitude_data.get("value") if isinstance(altitude_data, dict) else altitude_data
             if isinstance(value, (int, float)):
-                attrs["altitude"] = float(value)
+                self._last_altitude = float(value)
+        
+        if self._last_altitude is not None:
+            attrs["altitude"] = self._last_altitude
+        
+        # Add timestamp
+        lat_data = self.coordinator.data.get(LOCATION_LATITUDE_KEY)
+        if isinstance(lat_data, dict) and "timestamp" in lat_data:
+            attrs["last_changed"] = lat_data["timestamp"]
         
         return attrs
