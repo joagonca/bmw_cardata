@@ -7,7 +7,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import ATTRIBUTION, DOMAIN
 from .coordinator import BMWCarDataCoordinator
 
 
@@ -89,3 +89,11 @@ class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator], RestoreEntity):
         """Return if entity is available."""
         # Available if MQTT is connected or we have restored/cached data
         return self.coordinator.is_mqtt_connected or self._has_received_data
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str | None]:
+        """Return extra state attributes."""
+        attrs: dict[str, str | None] = {"attribution": ATTRIBUTION}
+        if self._last_timestamp:
+            attrs["last_changed"] = self._last_timestamp
+        return attrs

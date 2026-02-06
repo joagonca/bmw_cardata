@@ -6,6 +6,7 @@ from typing import Final
 
 # Integration domain
 DOMAIN: Final = "bmw_cardata"
+ATTRIBUTION: Final = "Data provided by BMW CarData API"
 
 # Configuration keys
 CONF_CLIENT_ID: Final = "client_id"

@@ -120,9 +120,4 @@ class BMWCarDataBinarySensor(BMWCarDataEntity, BinarySensorEntity):
 
         return None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return extra state attributes."""
-        if self._last_timestamp:
-            return {"last_changed": self._last_timestamp}
-        return None
+
