@@ -97,6 +97,10 @@ class BMWCarDataBinarySensor(BMWCarDataEntity, BinarySensorEntity):
         if icon:
             self._attr_icon = icon
 
+    def _restore_native_value(self, state: str) -> None:
+        """Restore the native value from state string."""
+        self._last_value = state.lower() == "on"
+
     @property
     def is_on(self) -> bool | None:
         """Return true if the binary sensor is on."""

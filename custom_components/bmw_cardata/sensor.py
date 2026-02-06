@@ -127,6 +127,16 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
         if "travelledDistance" in key:
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
+    def _restore_native_value(self, state: str) -> None:
+        """Restore the native value from state string."""
+        try:
+            if "." in state:
+                self._last_value = float(state)
+            else:
+                self._last_value = int(state)
+        except (ValueError, TypeError):
+            self._last_value = None
+
     @property
     def native_value(self) -> float | int | None:
         """Return the sensor value."""

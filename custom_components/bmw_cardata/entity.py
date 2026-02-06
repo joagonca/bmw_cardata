@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import BMWCarDataCoordinator
 
 
-class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator]):
+class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator], RestoreEntity):
     """Base class for BMW CarData entities."""
 
     _attr_has_entity_name = True
@@ -30,6 +31,25 @@ class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator]):
         self._last_timestamp: str | None = None
         self._has_received_data = False
 
+    async def async_added_to_hass(self) -> None:
+        """Restore state when entity is added to hass."""
+        await super().async_added_to_hass()
+        
+        # Try to restore previous state
+        if (last_state := await self.async_get_last_state()) is not None:
+            # Restore the value based on entity type
+            if last_state.state not in (None, "unknown", "unavailable"):
+                self._restore_native_value(last_state.state)
+                self._has_received_data = True
+            
+            # Restore timestamp from attributes
+            if last_state.attributes:
+                self._last_timestamp = last_state.attributes.get("last_changed")
+
+    def _restore_native_value(self, state: str) -> None:
+        """Restore the native value from state string. Override in subclasses."""
+        self._last_value = state
+
     @property
     def device_info(self) -> DeviceInfo:
         """Return device info."""
@@ -45,8 +65,8 @@ class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator]):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        # Available if MQTT is connected and we've ever received data for this key
-        return self.coordinator.is_mqtt_connected and self._has_received_data
+        # Available if MQTT is connected or we have restored/cached data
+        return self.coordinator.is_mqtt_connected or self._has_received_data
 
     def _get_value(self):
         """Get the current value for this entity's key."""
