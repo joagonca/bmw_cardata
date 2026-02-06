@@ -104,7 +104,7 @@ class BMWCarDataBinarySensor(BMWCarDataEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool | None:
         """Return true if the binary sensor is on."""
-        value = self._get_value()
+        value = self._last_value
         if value is None:
             return None
 
@@ -123,7 +123,6 @@ class BMWCarDataBinarySensor(BMWCarDataEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra state attributes."""
-        timestamp = self._get_timestamp()
-        if timestamp:
-            return {"last_changed": timestamp}
+        if self._last_timestamp:
+            return {"last_changed": self._last_timestamp}
         return None

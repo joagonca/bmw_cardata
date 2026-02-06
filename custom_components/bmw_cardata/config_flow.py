@@ -15,6 +15,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     API_BASE_URL,
@@ -58,25 +59,17 @@ async def _request_device_code(
         "code_challenge_method": "S256",
     }
 
-    def _do_request() -> dict[str, Any]:
-        """Execute the HTTP request in executor."""
-        import requests
+    session = async_get_clientsession(hass)
+    async with asyncio.timeout(30):
+        async with session.post(DEVICE_CODE_ENDPOINT, data=data) as response:
+            if response.status == 400:
+                error_data = await response.json()
+                if error_data.get("error") == "invalid_client":
+                    raise InvalidClientError()
+                raise AuthError(error_data.get("error_description", "Unknown error"))
+            response.raise_for_status()
+            result = await response.json()
 
-        response = requests.post(
-            DEVICE_CODE_ENDPOINT,
-            data=data,
-            timeout=30,
-        )
-
-        if response.status_code == 400:
-            error_data = response.json()
-            if error_data.get("error") == "invalid_client":
-                raise InvalidClientError()
-            raise AuthError(error_data.get("error_description", "Unknown error"))
-        response.raise_for_status()
-        return response.json()
-
-    result = await hass.async_add_executor_job(_do_request)
     _LOGGER.debug("Device code requested, expires in %ds", result.get("expires_in", 0))
     return result
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -45,10 +46,31 @@ class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator], RestoreEntity):
             # Restore timestamp from attributes
             if last_state.attributes:
                 self._last_timestamp = last_state.attributes.get("last_changed")
+        
+        # Process any data already in coordinator
+        self._process_coordinator_data()
 
     def _restore_native_value(self, state: str) -> None:
         """Restore the native value from state string. Override in subclasses."""
         self._last_value = state
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._process_coordinator_data()
+        self.async_write_ha_state()
+
+    def _process_coordinator_data(self) -> None:
+        """Process and cache data from coordinator. Called once per update."""
+        data = self.coordinator.data.get(self._key)
+        if data is not None:
+            if isinstance(data, dict) and "value" in data:
+                self._last_value = data["value"]
+                self._last_timestamp = data.get("timestamp")
+            else:
+                self._last_value = data
+                self._last_timestamp = None
+            self._has_received_data = True
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -67,24 +89,3 @@ class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator], RestoreEntity):
         """Return if entity is available."""
         # Available if MQTT is connected or we have restored/cached data
         return self.coordinator.is_mqtt_connected or self._has_received_data
-
-    def _get_value(self):
-        """Get the current value for this entity's key."""
-        data = self.coordinator.data.get(self._key)
-        if data is not None:
-            # Update cached value
-            if isinstance(data, dict) and "value" in data:
-                self._last_value = data["value"]
-                self._last_timestamp = data.get("timestamp")
-            else:
-                self._last_value = data
-                self._last_timestamp = None
-            self._has_received_data = True
-        
-        return self._last_value
-
-    def _get_timestamp(self) -> str | None:
-        """Get the timestamp of the last update for this key."""
-        # Ensure we've pulled the latest data
-        self._get_value()
-        return self._last_timestamp

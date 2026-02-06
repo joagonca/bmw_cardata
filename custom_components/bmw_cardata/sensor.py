@@ -140,7 +140,7 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
     @property
     def native_value(self) -> float | int | None:
         """Return the sensor value."""
-        value = self._get_value()
+        value = self._last_value
         if value is None:
             return None
 
@@ -159,7 +159,6 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra state attributes."""
-        timestamp = self._get_timestamp()
-        if timestamp:
-            return {"last_changed": timestamp}
+        if self._last_timestamp:
+            return {"last_changed": self._last_timestamp}
         return None
