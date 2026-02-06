@@ -38,7 +38,12 @@ DEFAULT_SCOPES: Final = "authenticate_user openid cardata:streaming:read cardata
 TOKEN_REFRESH_BUFFER: Final = 300  # Refresh 5 minutes before expiry
 
 # Platforms
-PLATFORMS: Final = ["sensor", "binary_sensor"]
+PLATFORMS: Final = ["sensor", "binary_sensor", "device_tracker"]
+
+# Location keys for device tracker
+LOCATION_LATITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLocation.latitude"
+LOCATION_LONGITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLocation.longitude"
+LOCATION_ALTITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLocation.altitude"
 
 # Known sensor keys with metadata
 # Format: key -> (name, unit, device_class, icon)
