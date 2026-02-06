@@ -7,9 +7,34 @@ A Home Assistant custom integration for the BMW CarData API, providing real-time
 - **Real-time streaming** via MQTT (bypasses the 50 requests/day REST API limit)
 - **OAuth 2.0 Device Code Flow** with PKCE for secure authentication
 - **Automatic token refresh** - tokens are managed and refreshed automatically
+- **Multi-vehicle support** - add multiple vehicles from the same BMW account with shared authentication
+- **Location tracking** - device tracker entity for zone-based automations (enter/leave events)
+- **State persistence** - entity values are preserved across Home Assistant restarts
 - **Fixed + dynamic entity discovery** - known sensors created at setup, new keys discovered automatically
 
 ## Supported Entities
+
+### Device Tracker
+
+The integration creates a device tracker entity for each vehicle, enabling:
+- Vehicle location on the Home Assistant map
+- Zone-based automations (e.g., notify when car arrives home)
+- Location history tracking
+
+**Example automation:**
+```yaml
+automation:
+  - alias: "Car arrived home"
+    trigger:
+      - platform: zone
+        entity_id: device_tracker.bmw_location
+        zone: zone.home
+        event: enter
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Your BMW has arrived home"
+```
 
 ### Sensors
 
@@ -41,7 +66,7 @@ A Home Assistant custom integration for the BMW CarData API, providing real-time
 | Rear Left Door | Rear left door open/closed |
 | Rear Right Door | Rear right door open/closed |
 
-> **Note**: Additional entities are created dynamically when new telemetry keys are discovered via MQTT streaming.
+> **Note**: Additional entities are created dynamically when new telemetry keys are discovered via MQTT streaming. All entities include a `last_changed` attribute showing when the value was last updated by the vehicle.
 
 ## Prerequisites
 
@@ -71,7 +96,16 @@ The integration is configured via the UI:
 2. **Authorize with BMW** - Visit the displayed URL and enter the code shown
 3. **Select Vehicle** - Choose from your PRIMARY vehicles
 
-Each integration instance supports a single VIN. To monitor multiple vehicles, add the integration multiple times.
+### Multi-Vehicle Setup
+
+Each integration instance supports a single VIN. To monitor multiple vehicles:
+
+1. Add the integration for your first vehicle
+2. Add the integration again for each additional vehicle
+3. Use the same Client ID - authentication tokens are shared automatically
+4. Select a different VIN each time
+
+The integration handles token sharing and MQTT connection management automatically, ensuring all vehicles receive updates efficiently through a single connection per account.
 
 ## How It Works
 
@@ -90,6 +124,7 @@ The integration uses OAuth 2.0 Device Code Flow with PKCE:
 - **Initial load**: REST API call to fetch basic vehicle data
 - **Real-time updates**: MQTT streaming connection for telemetry data
 - **Token refresh**: Automatic refresh before expiry (access token: 1hr, refresh token: 2 weeks)
+- **State persistence**: Entity values are restored after Home Assistant restarts
 
 ### Rate Limits
 
@@ -115,6 +150,12 @@ The integration uses OAuth 2.0 Device Code Flow with PKCE:
 - You must be the PRIMARY user of the vehicle in BMW ConnectedDrive
 - SECONDARY users cannot access CarData API
 
+### Entity shows "Unavailable"
+
+- This occurs when MQTT is disconnected and no previous data exists
+- Once data is received, entities retain their last known value even if MQTT temporarily disconnects
+- After a restart, previous values are restored automatically
+
 ## Development
 
 ### File Structure
@@ -125,10 +166,11 @@ custom_components/bmw_cardata/
 ├── manifest.json        # Integration metadata
 ├── config_flow.py       # Configuration UI flow
 ├── const.py             # Constants and entity definitions
-├── coordinator.py       # Data coordinator with MQTT
-├── entity.py            # Base entity class
+├── coordinator.py       # Data coordinator with MQTT and token management
+├── entity.py            # Base entity class with state restoration
 ├── sensor.py            # Sensor entities
 ├── binary_sensor.py     # Binary sensor entities
+├── device_tracker.py    # Location tracking entity
 ├── strings.json         # UI strings
 └── translations/
     └── en.json          # English translations
@@ -167,6 +209,9 @@ vehicle.cabin.door.row1.driver.isOpen
 vehicle.cabin.door.row1.passenger.isOpen
 vehicle.cabin.door.row2.driver.isOpen
 vehicle.cabin.door.row2.passenger.isOpen
+vehicle.cabin.infotainment.navigation.currentLocation.latitude
+vehicle.cabin.infotainment.navigation.currentLocation.longitude
+vehicle.cabin.infotainment.navigation.currentLocation.altitude
 ```
 
 > **Tip**: You can add additional keys from BMW's Telematics Data Catalogue. The integration will automatically create entities for any new keys it receives.
