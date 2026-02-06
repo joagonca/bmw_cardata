@@ -8,5 +8,5 @@
   "issue_tracker": "https://github.com/joagonca/bmw_cardata/issues",
   "iot_class": "cloud_push",
   "requirements": ["paho-mqtt>=2.0.0"],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
