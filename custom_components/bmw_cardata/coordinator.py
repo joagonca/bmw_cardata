@@ -67,9 +67,18 @@ class BMWTokenManager:
     def register_entry(self, entry: ConfigEntry) -> None:
         """Register a config entry with this token manager."""
         self._config_entries.add(entry.entry_id)
-        # Initialize tokens from entry if we don't have any yet
+        entry_tokens = entry.data.get(CONF_TOKENS, {})
+        
+        # Use tokens with the latest expiry time (most recently refreshed)
         if not self._tokens:
-            self._tokens = dict(entry.data.get(CONF_TOKENS, {}))
+            self._tokens = dict(entry_tokens)
+        elif entry_tokens.get(TOKEN_EXPIRES_AT, 0) > self._tokens.get(TOKEN_EXPIRES_AT, 0):
+            self._tokens = dict(entry_tokens)
+            _LOGGER.debug(
+                "[%s] Using fresher tokens from entry %s",
+                self.client_id[:8],
+                entry.entry_id[:8],
+            )
 
     def unregister_entry(self, entry_id: str) -> bool:
         """Unregister a config entry. Returns True if manager is now empty."""
@@ -186,7 +195,9 @@ class BMWMqttManager:
         self._gcid = gcid
         self._mqtt_client: mqtt.Client | None = None
         self._mqtt_connected = False
+        self._mqtt_connecting = False  # Track if connection attempt is in progress
         self._mqtt_lock = threading.Lock()
+        self._start_lock = asyncio.Lock()
         self._reconnect_lock = asyncio.Lock()
         # Map VIN -> callback function for message routing
         self._vin_callbacks: dict[str, Callable[[dict[str, Any]], None]] = {}
@@ -226,59 +237,72 @@ class BMWMqttManager:
 
     async def async_start(self) -> None:
         """Start the MQTT connection."""
-        if self._mqtt_client:
-            return  # Already started
-        
-        # Ensure tokens are fresh
-        tokens = await self._token_manager.async_get_tokens()
-        id_token = tokens.get(TOKEN_ID)
+        async with self._start_lock:
+            # Already connected or connection in progress
+            if self._mqtt_connected or self._mqtt_connecting:
+                return
+            
+            # If we have a dead client, clean it up first
+            if self._mqtt_client and not self._mqtt_connected and not self._mqtt_connecting:
+                _LOGGER.info("[%s] Cleaning up disconnected MQTT client", self._gcid[:8])
+                await self._async_stop_client()
+            
+            self._mqtt_connecting = True
+            
+            # Force token refresh to ensure we have valid credentials
+            _LOGGER.debug("[%s] Refreshing tokens before MQTT connect", self._gcid[:8])
+            await self._token_manager._async_refresh_tokens()
+            
+            tokens = self._token_manager.tokens
+            id_token = tokens.get(TOKEN_ID)
 
-        if not id_token:
-            _LOGGER.error("[%s] Missing ID token for MQTT", self._gcid[:8])
-            return
+            if not id_token:
+                _LOGGER.error("[%s] Missing ID token for MQTT", self._gcid[:8])
+                return
 
-        def _create_and_connect():
-            """Create MQTT client and connect (runs in executor)."""
-            client = mqtt.Client(
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-                client_id=f"ha-bmw-cardata-{self._gcid[:8]}",
-                protocol=mqtt.MQTTv311,
-            )
+            def _create_and_connect():
+                """Create MQTT client and connect (runs in executor)."""
+                client = mqtt.Client(
+                    callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+                    client_id=f"ha-bmw-cardata-{self._gcid[:8]}",
+                    protocol=mqtt.MQTTv311,
+                )
 
-            client.username_pw_set(self._gcid, id_token)
+                client.username_pw_set(self._gcid, id_token)
 
-            # Use modern SSL context approach for better compatibility
-            ssl_context = ssl.create_default_context()
-            client.tls_set_context(ssl_context)
+                # Use modern SSL context approach for better compatibility
+                ssl_context = ssl.create_default_context()
+                client.tls_set_context(ssl_context)
 
-            client.on_connect = self._on_mqtt_connect
-            client.on_disconnect = self._on_mqtt_disconnect
-            client.on_message = self._on_mqtt_message
+                client.on_connect = self._on_mqtt_connect
+                client.on_disconnect = self._on_mqtt_disconnect
+                client.on_message = self._on_mqtt_message
 
-            client.connect(
-                MQTT_BROKER_HOST,
-                MQTT_BROKER_PORT,
-                keepalive=MQTT_KEEPALIVE,
-            )
+                client.connect(
+                    MQTT_BROKER_HOST,
+                    MQTT_BROKER_PORT,
+                    keepalive=MQTT_KEEPALIVE,
+                )
 
-            client.loop_start()
-            return client
+                client.loop_start()
+                return client
 
-        try:
-            self._mqtt_client = await self.hass.async_add_executor_job(
-                _create_and_connect
-            )
-            _LOGGER.info(
-                "[%s] MQTT client connecting to %s:%d",
-                self._gcid[:8],
-                MQTT_BROKER_HOST,
-                MQTT_BROKER_PORT,
-            )
-        except Exception as err:
-            _LOGGER.error("[%s] Failed to create MQTT client: %s", self._gcid[:8], err)
+            try:
+                self._mqtt_client = await self.hass.async_add_executor_job(
+                    _create_and_connect
+                )
+                _LOGGER.info(
+                    "[%s] MQTT client connecting to %s:%d",
+                    self._gcid[:8],
+                    MQTT_BROKER_HOST,
+                    MQTT_BROKER_PORT,
+                )
+            except Exception as err:
+                self._mqtt_connecting = False
+                _LOGGER.error("[%s] Failed to create MQTT client: %s", self._gcid[:8], err)
 
-    async def async_stop(self) -> None:
-        """Stop the MQTT connection."""
+    async def _async_stop_client(self) -> None:
+        """Stop the MQTT client without affecting connecting state."""
         if self._mqtt_client:
             def _stop():
                 with self._mqtt_lock:
@@ -291,6 +315,11 @@ class BMWMqttManager:
             self._mqtt_connected = False
             self._subscribed_vins.clear()
 
+    async def async_stop(self) -> None:
+        """Stop the MQTT connection."""
+        self._mqtt_connecting = False
+        await self._async_stop_client()
+
     def _on_mqtt_connect(
         self,
         client: mqtt.Client,
@@ -300,6 +329,8 @@ class BMWMqttManager:
         properties: mqtt.Properties | None = None,
     ) -> None:
         """Handle MQTT connection."""
+        self._mqtt_connecting = False
+        
         if reason_code == mqtt.CONNACK_ACCEPTED or reason_code.value == 0:
             self._mqtt_connected = True
             self._subscribed_vins.clear()
@@ -322,6 +353,12 @@ class BMWMqttManager:
                 reason_code,
             )
             self._mqtt_connected = False
+            
+            # Schedule reconnection attempt on auth failure
+            self.hass.loop.call_soon_threadsafe(
+                self.hass.async_create_task,
+                self._async_handle_reconnect(),
+            )
 
     def _on_mqtt_disconnect(
         self,
