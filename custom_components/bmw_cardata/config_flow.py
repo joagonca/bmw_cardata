@@ -350,8 +350,8 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                             "model": vehicle_info.get("modelName"),
                             "series": vehicle_info.get("series"),
                             "body_type": vehicle_info.get("bodyType"),
+                            # driveTrain: "CONV" (combustion), "PHEV", or "BEV"
                             "drive_train": vehicle_info.get("driveTrain"),
-                            "propulsion_type": vehicle_info.get("propulsionType"),
                         },
                     },
                 )

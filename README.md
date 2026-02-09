@@ -37,33 +37,33 @@ automation:
 
 ### Sensors
 
-| Entity | Description | Unit |
-|--------|-------------|------|
-| Battery | Calculated battery percentage (Electric Range / Target Electric Range) | % |
-| Odometer | Total distance travelled | km |
-| Total Range | Combined remaining range (fuel + electric) | km |
-| Electric Range | Remaining electric-only range | km |
-| Target Electric Range | Target range based on charge settings | km |
-| Front Left Tire Pressure | Tire pressure | kPa |
-| Front Right Tire Pressure | Tire pressure | kPa |
-| Rear Left Tire Pressure | Tire pressure | kPa |
-| Rear Right Tire Pressure | Tire pressure | kPa |
+| Entity | Description | Unit | Electric Only |
+|--------|-------------|------|---------------|
+| Battery | Calculated battery percentage (Electric Range / Target Electric Range) | % | ✓ |
+| Odometer | Total distance travelled | km | |
+| Total Range | Combined remaining range (fuel + electric) | km | |
+| Electric Range | Remaining electric-only range | km | ✓ |
+| Target Electric Range | Target range based on charge settings | km | ✓ |
+| Front Left Tire Pressure | Tire pressure | kPa | |
+| Front Right Tire Pressure | Tire pressure | kPa | |
+| Rear Left Tire Pressure | Tire pressure | kPa | |
+| Rear Right Tire Pressure | Tire pressure | kPa | |
 
 ### Binary Sensors
 
-| Entity | Description |
-|--------|-------------|
-| Charging Climatization | Cabin pre-conditioning active during charging |
-| Charging Profile Complete | Remote Charging Profile configuration complete |
-| Trunk | Trunk open/closed |
-| Hood | Hood open/closed |
-| Charging Port | Charging port connected |
-| Driver Door | Driver door open/closed |
-| Front Passenger Door | Front passenger door open/closed |
-| Rear Left Door | Rear left door open/closed |
-| Rear Right Door | Rear right door open/closed |
+| Entity | Description | Electric Only |
+|--------|-------------|---------------|
+| Charging Climatization | Cabin pre-conditioning active during charging | ✓ |
+| Charging Profile Complete | Remote Charging Profile configuration complete | ✓ |
+| Trunk | Trunk open/closed | |
+| Hood | Hood open/closed | |
+| Charging Port | Charging port connected | ✓ |
+| Driver Door | Driver door open/closed | |
+| Front Passenger Door | Front passenger door open/closed | |
+| Rear Left Door | Rear left door open/closed | |
+| Rear Right Door | Rear right door open/closed | |
 
-> **Note**: All entities include a `last_changed` attribute showing when the value was last updated by the vehicle.
+> **Note**: Entities marked "Electric Only" are only created for PHEV and BEV vehicles. Conventional (CONV) vehicles will not have these entities. All entities include a `last_changed` attribute showing when the value was last updated by the vehicle.
 
 ## Prerequisites
 
@@ -179,22 +179,19 @@ To add new entities, update `KNOWN_SENSORS` or `KNOWN_BINARY_SENSORS` in `const.
 
 ## Required Streaming Keys
 
-When configuring your container in the BMW CarData Portal, add these technical descriptors to receive data for the built-in entities:
+When configuring your container in the BMW CarData Portal, add these technical descriptors to receive data for the built-in entities.
+
+### All Vehicles
 
 ```
 vehicle.vehicle.travelledDistance
 vehicle.drivetrain.lastRemainingRange
-vehicle.drivetrain.electricEngine.kombiRemainingElectricRange
-vehicle.powertrain.electric.range.target
 vehicle.chassis.axle.row1.wheel.left.tire.pressure
 vehicle.chassis.axle.row1.wheel.right.tire.pressure
 vehicle.chassis.axle.row2.wheel.left.tire.pressure
 vehicle.chassis.axle.row2.wheel.right.tire.pressure
-vehicle.drivetrain.electricEngine.charging.profile.climatizationActive
-vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete
 vehicle.body.trunk.isOpen
 vehicle.body.hood.isOpen
-vehicle.body.chargingPort.status
 vehicle.cabin.door.row1.driver.isOpen
 vehicle.cabin.door.row1.passenger.isOpen
 vehicle.cabin.door.row2.driver.isOpen
@@ -202,6 +199,16 @@ vehicle.cabin.door.row2.passenger.isOpen
 vehicle.cabin.infotainment.navigation.currentLocation.latitude
 vehicle.cabin.infotainment.navigation.currentLocation.longitude
 vehicle.cabin.infotainment.navigation.currentLocation.altitude
+```
+
+### Electric Vehicles Only (PHEV/BEV)
+
+```
+vehicle.drivetrain.electricEngine.kombiRemainingElectricRange
+vehicle.powertrain.electric.range.target
+vehicle.drivetrain.electricEngine.charging.profile.climatizationActive
+vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete
+vehicle.body.chargingPort.status
 ```
 
 > **Tip**: You can add additional keys from BMW's Telematics Data Catalogue by updating `const.py`.

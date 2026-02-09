@@ -16,7 +16,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import KNOWN_SENSORS, DOMAIN
+from .const import DOMAIN, DRIVETRAIN_CONV, ELECTRIC_SENSOR_KEYS, KNOWN_SENSORS
 from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
 
@@ -42,11 +42,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up BMW CarData sensors."""
     coordinator: BMWCarDataCoordinator = entry.runtime_data
+    drive_train = coordinator.vehicle_info.get("drive_train")
+    is_electric = drive_train != DRIVETRAIN_CONV
 
     # Create entities for all known sensors
     entities: list[BMWCarDataSensor] = []
 
     for key, (name, unit, device_class, icon) in KNOWN_SENSORS.items():
+        # Skip electric-only sensors for conventional vehicles
+        if not is_electric and key in ELECTRIC_SENSOR_KEYS:
+            continue
+
         entities.append(
             BMWCarDataSensor(
                 coordinator=coordinator,
@@ -60,8 +66,9 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
-    # Add calculated Battery sensor
-    async_add_entities([BMWBatterySensor(coordinator)])
+    # Add calculated Battery sensor only for electric vehicles
+    if is_electric:
+        async_add_entities([BMWBatterySensor(coordinator)])
 
 
 class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):

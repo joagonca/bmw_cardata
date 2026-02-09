@@ -41,6 +41,11 @@ TOKEN_REFRESH_BUFFER: Final = 300  # Refresh 5 minutes before expiry
 # Platforms
 PLATFORMS: Final = ["sensor", "binary_sensor", "device_tracker"]
 
+# Drivetrain types
+DRIVETRAIN_CONV: Final = "CONV"  # Conventional combustion engine
+DRIVETRAIN_PHEV: Final = "PHEV"  # Plug-in hybrid electric
+DRIVETRAIN_BEV: Final = "BEV"    # Battery electric vehicle
+
 # Location keys for device tracker
 LOCATION_LATITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLocation.latitude"
 LOCATION_LONGITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLocation.longitude"
@@ -99,6 +104,12 @@ KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] 
     ),
 }
 
+# Sensor keys that require electric drivetrain (PHEV or BEV)
+ELECTRIC_SENSOR_KEYS: Final[set[str]] = {
+    "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange",
+    "vehicle.powertrain.electric.range.target",
+}
+
 # Known binary sensor keys with metadata
 # Format: key -> (name, device_class, icon)
 KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
@@ -147,4 +158,11 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
         "door",
         "mdi:car-door",
     ),
+}
+
+# Binary sensor keys that require electric drivetrain (PHEV or BEV)
+ELECTRIC_BINARY_SENSOR_KEYS: Final[set[str]] = {
+    "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive",
+    "vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete",
+    "vehicle.body.chargingPort.status",
 }
