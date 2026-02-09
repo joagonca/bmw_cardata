@@ -525,10 +525,6 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._token_manager = token_manager
         self._mqtt_manager = mqtt_manager
 
-        # Track discovered keys for dynamic entity creation
-        self._discovered_keys: set[str] = set()
-        self._new_key_callbacks: list[Callable[[str, Any], None]] = []
-
         # Initialize data store
         self.data: dict[str, Any] = {}
 
@@ -652,35 +648,8 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
             updated = True
 
-            # Check for unknown keys
-            if key not in KNOWN_SENSORS and key not in KNOWN_BINARY_SENSORS and key not in self._discovered_keys:
-                self._discovered_keys.add(key)
-                _LOGGER.info(
-                    "[%s] New telemetry key: %s (type=%s, add to const.py for custom config)",
-                    self._vin[-6:],
-                    key,
-                    type(actual_value).__name__,
-                )
-                # Notify callbacks about new key
-                for cb in self._new_key_callbacks:
-                    try:
-                        cb(key, actual_value)
-                    except Exception as err:
-                        _LOGGER.error("[%s] New key callback error: %s", self._vin[-6:], err)
-
         if updated:
             self.async_set_updated_data(self.data)
-
-    def register_new_key_callback(
-        self, cb: Callable[[str, Any], None]
-    ) -> Callable[[], None]:
-        """Register a callback for newly discovered keys."""
-        self._new_key_callbacks.append(cb)
-
-        def remove():
-            self._new_key_callbacks.remove(cb)
-
-        return remove
 
     @property
     def is_mqtt_connected(self) -> bool:

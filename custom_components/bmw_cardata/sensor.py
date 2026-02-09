@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,14 +10,15 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfLength, UnitOfPressure
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfPressure
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import KNOWN_SENSORS
+from .const import KNOWN_SENSORS, DOMAIN
 from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
-from .utils import generate_entity_name_from_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,44 +60,15 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
-    # Register callback for dynamically discovered sensors
-    @callback
-    def on_new_key(key: str, value: Any) -> None:
-        """Handle newly discovered sensor keys."""
-        # Only create sensors for numeric values (not booleans)
-        if isinstance(value, bool):
-            return
-        if not isinstance(value, (int, float)):
-            return
-        if key in KNOWN_SENSORS:
-            return
-
-        _LOGGER.info(
-            "[%s] Creating dynamic sensor: %s",
-            coordinator.vin[-6:],
-            key,
-        )
-
-        async_add_entities(
-            [
-                BMWCarDataSensor(
-                    coordinator=coordinator,
-                    key=key,
-                    name=generate_entity_name_from_key(key),
-                    unit=None,
-                    device_class=None,
-                    icon="mdi:car-info",
-                )
-            ]
-        )
-
-    entry.async_on_unload(coordinator.register_new_key_callback(on_new_key))
+    # Add calculated Battery sensor
+    async_add_entities([BMWBatterySensor(coordinator)])
 
 
 class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
     """Representation of a BMW CarData sensor."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
 
     def __init__(
         self,
@@ -155,5 +126,72 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
             return int(value)
         except (ValueError, TypeError):
             return None
+
+
+class BMWBatterySensor(CoordinatorEntity[BMWCarDataCoordinator], SensorEntity):
+    """Calculated Battery sensor (Electric Range / Target Electric Range * 100)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Battery"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+    _attr_icon = "mdi:battery"
+
+    # Keys for calculation
+    _electric_range_key = "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange"
+    _target_range_key = "vehicle.powertrain.electric.range.target"
+
+    def __init__(self, coordinator: BMWCarDataCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.vin}_calculated_battery"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device info."""
+        vehicle_info = self.coordinator.vehicle_info
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.vin)},
+            name=f"{vehicle_info.get('brand', 'BMW')} {vehicle_info.get('model', self.coordinator.vin[:8])}",
+            manufacturer=vehicle_info.get("brand", "BMW"),
+            model=vehicle_info.get("model"),
+            sw_version=vehicle_info.get("series"),
+        )
+
+    def _get_value(self, key: str) -> float | None:
+        """Get numeric value from coordinator data."""
+        data = self.coordinator.data.get(key)
+        if data is None:
+            return None
+        
+        value = data.get("value") if isinstance(data, dict) else data
+        if value is None:
+            return None
+        
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the calculated battery percentage."""
+        electric_range = self._get_value(self._electric_range_key)
+        target_range = self._get_value(self._target_range_key)
+
+        if electric_range is None or target_range is None:
+            return None
+
+        if target_range == 0:
+            return None
+
+        return (electric_range / target_range) * 100
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return self.coordinator.is_mqtt_connected or self.native_value is not None
 
 

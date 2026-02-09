@@ -10,7 +10,6 @@ A Home Assistant custom integration for the BMW CarData API, providing real-time
 - **Multi-vehicle support** - add multiple vehicles from the same BMW account with shared authentication
 - **Location tracking** - device tracker entity for zone-based automations (enter/leave events)
 - **State persistence** - entity values are preserved across Home Assistant restarts
-- **Fixed + dynamic entity discovery** - known sensors created at setup, new keys discovered automatically
 
 ## Supported Entities
 
@@ -40,6 +39,7 @@ automation:
 
 | Entity | Description | Unit |
 |--------|-------------|------|
+| Battery | Calculated battery percentage (Electric Range / Target Electric Range) | % |
 | Odometer | Total distance travelled | km |
 | Total Range | Combined remaining range (fuel + electric) | km |
 | Electric Range | Remaining electric-only range | km |
@@ -48,8 +48,6 @@ automation:
 | Front Right Tire Pressure | Tire pressure | kPa |
 | Rear Left Tire Pressure | Tire pressure | kPa |
 | Rear Right Tire Pressure | Tire pressure | kPa |
-| Battery State of Charge | High-voltage battery level | % |
-| Fuel Level | Remaining fuel | % |
 
 ### Binary Sensors
 
@@ -59,14 +57,13 @@ automation:
 | Charging Profile Complete | Remote Charging Profile configuration complete |
 | Trunk | Trunk open/closed |
 | Hood | Hood open/closed |
-| Trunk Lock | Trunk locked/unlocked |
 | Charging Port | Charging port connected |
 | Driver Door | Driver door open/closed |
 | Front Passenger Door | Front passenger door open/closed |
 | Rear Left Door | Rear left door open/closed |
 | Rear Right Door | Rear right door open/closed |
 
-> **Note**: Additional entities are created dynamically when new telemetry keys are discovered via MQTT streaming. All entities include a `last_changed` attribute showing when the value was last updated by the vehicle.
+> **Note**: All entities include a `last_changed` attribute showing when the value was last updated by the vehicle.
 
 ## Prerequisites
 
@@ -178,11 +175,7 @@ custom_components/bmw_cardata/
 
 ### Adding New Entities
 
-When new telemetry keys are discovered, they are:
-1. Logged at INFO level with the key name and value
-2. Automatically created as dynamic entities
-
-To add them as fixed entities, update `KNOWN_SENSORS` or `KNOWN_BINARY_SENSORS` in `const.py`.
+To add new entities, update `KNOWN_SENSORS` or `KNOWN_BINARY_SENSORS` in `const.py`.
 
 ## Required Streaming Keys
 
@@ -199,11 +192,8 @@ vehicle.chassis.axle.row2.wheel.left.tire.pressure
 vehicle.chassis.axle.row2.wheel.right.tire.pressure
 vehicle.drivetrain.electricEngine.charging.profile.climatizationActive
 vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete
-vehicle.electricalSystem.battery.stateOfCharge
-vehicle.drivetrain.fuelSystem.remainingFuel
 vehicle.body.trunk.isOpen
 vehicle.body.hood.isOpen
-vehicle.body.trunk.isLocked
 vehicle.body.chargingPort.status
 vehicle.cabin.door.row1.driver.isOpen
 vehicle.cabin.door.row1.passenger.isOpen
@@ -214,7 +204,7 @@ vehicle.cabin.infotainment.navigation.currentLocation.longitude
 vehicle.cabin.infotainment.navigation.currentLocation.altitude
 ```
 
-> **Tip**: You can add additional keys from BMW's Telematics Data Catalogue. The integration will automatically create entities for any new keys it receives.
+> **Tip**: You can add additional keys from BMW's Telematics Data Catalogue by updating `const.py`.
 
 ## License
 

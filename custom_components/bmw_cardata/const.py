@@ -97,18 +97,6 @@ KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] 
         "pressure",
         "mdi:car-tire-alert",
     ),
-    "vehicle.drivetrain.batteryManagement.maxEnergy": (
-        "Battery State of Charge",
-        "%",
-        "battery",
-        "mdi:battery",
-    ),
-    "vehicle.drivetrain.fuelSystem.remainingFuel": (
-        "Fuel Level",
-        "%",
-        None,
-        "mdi:gas-station",
-    ),
 }
 
 # Known binary sensor keys with metadata
@@ -133,11 +121,6 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
         "Hood",
         "opening",
         "mdi:car",
-    ),
-    "vehicle.body.trunk.isLocked": (
-        "Trunk Lock",
-        "lock",
-        "mdi:lock",
     ),
     "vehicle.body.chargingPort.status": (
         "Charging Port",
