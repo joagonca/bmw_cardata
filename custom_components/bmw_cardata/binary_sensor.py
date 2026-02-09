@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import logging
-
-from homeassistant.components.binary_sensor import (
-    BinarySensorEntity,
-)
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -14,8 +10,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DRIVETRAIN_CONV, ELECTRIC_BINARY_SENSOR_KEYS, KNOWN_BINARY_SENSORS
 from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(

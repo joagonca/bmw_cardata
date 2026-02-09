@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import logging
-
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -12,15 +10,19 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfPressure
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, DRIVETRAIN_CONV, ELECTRIC_SENSOR_KEYS, KNOWN_SENSORS
+from .const import (
+    DRIVETRAIN_CONV,
+    ELECTRIC_SENSOR_KEYS,
+    KNOWN_SENSORS,
+)
 from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
 
-_LOGGER = logging.getLogger(__name__)
+# Keys for Battery calculation (subset of ELECTRIC_SENSOR_KEYS)
+_BATTERY_ELECTRIC_RANGE_KEY = "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange"
+_BATTERY_TARGET_RANGE_KEY = "vehicle.powertrain.electric.range.target"
 
 # Map device class strings to actual classes
 DEVICE_CLASS_MAP = {
@@ -135,48 +137,29 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
             return None
 
 
-class BMWBatterySensor(CoordinatorEntity[BMWCarDataCoordinator], SensorEntity):
+class BMWBatterySensor(BMWCarDataEntity, SensorEntity):
     """Calculated Battery sensor (Electric Range / Target Electric Range * 100)."""
 
-    _attr_has_entity_name = True
-    _attr_name = "Battery"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 0
     _attr_icon = "mdi:battery"
 
-    # Keys for calculation
-    _electric_range_key = "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange"
-    _target_range_key = "vehicle.powertrain.electric.range.target"
-
     def __init__(self, coordinator: BMWCarDataCoordinator) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.vin}_calculated_battery"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device info."""
-        vehicle_info = self.coordinator.vehicle_info
-        return DeviceInfo(
-            identifiers={(DOMAIN, self.coordinator.vin)},
-            name=f"{vehicle_info.get('brand', 'BMW')} {vehicle_info.get('model', self.coordinator.vin[:8])}",
-            manufacturer=vehicle_info.get("brand", "BMW"),
-            model=vehicle_info.get("model"),
-            sw_version=vehicle_info.get("series"),
-        )
+        super().__init__(coordinator, key="calculated_battery", name="Battery")
 
     def _get_value(self, key: str) -> float | None:
         """Get numeric value from coordinator data."""
         data = self.coordinator.data.get(key)
         if data is None:
             return None
-        
+
         value = data.get("value") if isinstance(data, dict) else data
         if value is None:
             return None
-        
+
         try:
             return float(value)
         except (ValueError, TypeError):
@@ -185,8 +168,8 @@ class BMWBatterySensor(CoordinatorEntity[BMWCarDataCoordinator], SensorEntity):
     @property
     def native_value(self) -> float | None:
         """Return the calculated battery percentage."""
-        electric_range = self._get_value(self._electric_range_key)
-        target_range = self._get_value(self._target_range_key)
+        electric_range = self._get_value(_BATTERY_ELECTRIC_RANGE_KEY)
+        target_range = self._get_value(_BATTERY_TARGET_RANGE_KEY)
 
         if electric_range is None or target_range is None:
             return None
@@ -195,10 +178,5 @@ class BMWBatterySensor(CoordinatorEntity[BMWCarDataCoordinator], SensorEntity):
             return None
 
         return (electric_range / target_range) * 100
-
-    @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        return self.coordinator.is_mqtt_connected or self.native_value is not None
 
 

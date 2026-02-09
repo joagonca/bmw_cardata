@@ -21,8 +21,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     API_BASE_URL,
     DEFAULT_SCOPES,
-    KNOWN_BINARY_SENSORS,
-    KNOWN_SENSORS,
     CONF_CLIENT_ID,
     CONF_TOKENS,
     CONF_VIN,
@@ -34,7 +32,6 @@ from .const import (
     TOKEN_ACCESS,
     TOKEN_ENDPOINT,
     TOKEN_EXPIRES_AT,
-    TOKEN_GCID,
     TOKEN_ID,
     TOKEN_REFRESH,
     TOKEN_REFRESH_BUFFER,

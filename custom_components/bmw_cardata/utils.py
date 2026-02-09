@@ -50,15 +50,6 @@ def parse_token_response(
     }
 
 
-def generate_entity_name_from_key(key: str) -> str:
-    """Generate a human-readable entity name from a telemetry key.
-    
-    Example: "vehicle.body.door.row1.driver.isOpen" -> "Driver Isopen"
-    """
-    name_parts = key.split(".")
-    return " ".join(name_parts[-2:]).replace("_", " ").title()
-
-
 def format_token_expiry(expires_at: int) -> str:
     """Format token expiry timestamp for logging.
     

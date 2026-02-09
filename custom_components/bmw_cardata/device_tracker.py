@@ -11,7 +11,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    DOMAIN,
     LOCATION_ALTITUDE_KEY,
     LOCATION_LATITUDE_KEY,
     LOCATION_LONGITUDE_KEY,
