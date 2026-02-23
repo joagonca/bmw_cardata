@@ -149,34 +149,52 @@ class BMWBatterySensor(BMWCarDataEntity, SensorEntity):
     def __init__(self, coordinator: BMWCarDataCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, key="calculated_battery", name="Battery")
+        # Per-key caches so a partial MQTT update (only one key present) can
+        # still produce a value using the last known reading for the other key.
+        self._last_electric_range: float | None = None
+        self._last_target_range: float | None = None
 
-    def _get_value(self, key: str) -> float | None:
-        """Get numeric value from coordinator data."""
-        data = self.coordinator.data.get(key)
-        if data is None:
-            return None
-
-        value = data.get("value") if isinstance(data, dict) else data
-        if value is None:
-            return None
-
+    def _restore_native_value(self, state: str) -> None:
+        """Restore the native value from state string."""
         try:
-            return float(value)
+            self._last_value = float(state)
         except (ValueError, TypeError):
-            return None
+            self._last_value = None
+
+    def _process_coordinator_data(self) -> None:
+        """Compute battery percentage, falling back to cached source values if one key is absent."""
+        def _extract(key: str) -> float | None:
+            data = self.coordinator.data.get(key)
+            if data is None:
+                return None
+            value = data.get("value") if isinstance(data, dict) else data
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return None
+
+        electric_range = _extract(_BATTERY_ELECTRIC_RANGE_KEY)
+        target_range = _extract(_BATTERY_TARGET_RANGE_KEY)
+
+        # Update per-key caches whenever fresh data arrives
+        if electric_range is not None:
+            self._last_electric_range = electric_range
+        if target_range is not None:
+            self._last_target_range = target_range
+
+        # Use cached value for whichever source key is absent in this update
+        effective_electric = electric_range if electric_range is not None else self._last_electric_range
+        effective_target = target_range if target_range is not None else self._last_target_range
+
+        if effective_electric is None or effective_target is None or effective_target == 0:
+            return
+
+        self._last_value = (effective_electric / effective_target) * 100
+        self._has_received_data = True
 
     @property
     def native_value(self) -> float | None:
         """Return the calculated battery percentage."""
-        electric_range = self._get_value(_BATTERY_ELECTRIC_RANGE_KEY)
-        target_range = self._get_value(_BATTERY_TARGET_RANGE_KEY)
-
-        if electric_range is None or target_range is None:
-            return None
-
-        if target_range == 0:
-            return None
-
-        return (electric_range / target_range) * 100
+        return self._last_value
 
 
