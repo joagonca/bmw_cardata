@@ -193,6 +193,7 @@ class BMWMqttManager:
         self._mqtt_client: mqtt.Client | None = None
         self._mqtt_connected = False
         self._mqtt_connecting = False  # Track if connection attempt is in progress
+        self._stopped = False  # Set on async_stop(); causes reconnect loop to exit cleanly
         self._mqtt_lock = threading.Lock()
         self._start_lock = asyncio.Lock()
         self._reconnect_lock = asyncio.Lock()
@@ -316,6 +317,7 @@ class BMWMqttManager:
 
     async def async_stop(self) -> None:
         """Stop the MQTT connection."""
+        self._stopped = True
         self._mqtt_connecting = False
         await self._async_stop_client()
 
@@ -390,6 +392,11 @@ class BMWMqttManager:
             delays = [5, 15, 30, 60, 120]
             for attempt, delay in enumerate(delays):
                 await asyncio.sleep(delay)
+
+                # Manager was stopped (entry unloaded/reloaded during our sleep).
+                # Exit without triggering re-auth — the new manager handles things.
+                if self._stopped:
+                    return
 
                 _LOGGER.info(
                     "[%s] MQTT reconnect attempt %d/%d",
