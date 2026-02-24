@@ -373,3 +373,71 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Handle re-authentication (triggered by HA UI or automatic reconnect failure)."""
+        self._client_id = entry_data[CONF_CLIENT_ID]
+
+        self._code_verifier, code_challenge = _generate_pkce()
+        try:
+            self._device_code_response = await _request_device_code(
+                self.hass, self._client_id, code_challenge
+            )
+            return await self.async_step_reauth_confirm()
+        except InvalidClientError:
+            return self.async_abort(reason="invalid_client_id")
+        except Exception as err:
+            _LOGGER.error("Re-auth device code request failed: %s", err)
+            return self.async_abort(reason="api_error")
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show auth URL and poll for new tokens, then update the existing entry."""
+        if self._device_code_response is None:
+            return self.async_abort(reason="api_error")
+
+        errors: dict[str, str] = {}
+
+        verification_url = (
+            self._device_code_response.get("verification_uri_complete")
+            or self._device_code_response.get("verification_uri")
+        )
+        user_code = self._device_code_response.get("user_code", "")
+
+        if user_input is not None:
+            try:
+                token_data = await _poll_for_token(
+                    self.hass,
+                    self._client_id,
+                    self._device_code_response["device_code"],
+                    self._code_verifier,
+                    self._device_code_response.get("interval", 5),
+                    self._device_code_response.get("expires_in", 600),
+                )
+                new_tokens = parse_token_response(token_data)
+                entry = self._get_reauth_entry()
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data={**entry.data, CONF_TOKENS: new_tokens},
+                    reason="reauth_successful",
+                )
+            except AuthTimeoutError:
+                return self.async_abort(reason="auth_timeout")
+            except AuthDeniedError:
+                return self.async_abort(reason="auth_denied")
+            except Exception as err:
+                _LOGGER.error("Re-auth polling failed: %s", err)
+                errors["base"] = "auth_failed"
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "url": verification_url,
+                "user_code": user_code,
+            },
+            errors=errors,
+        )

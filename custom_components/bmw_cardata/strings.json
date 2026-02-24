@@ -18,6 +18,10 @@
         "data": {
           "vin": "Vehicle"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate with BMW",
+        "description": "Your BMW CarData session needs to be renewed.\n\n1. Visit: **{url}**\n2. Enter code: **{user_code}**\n3. Log in with your BMW account and authorize\n4. Click **Submit** below after authorizing"
       }
     },
     "error": {

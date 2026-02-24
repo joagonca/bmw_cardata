@@ -245,16 +245,18 @@ class BMWMqttManager:
                 await self._async_stop_client()
             
             self._mqtt_connecting = True
-            
-            # Force token refresh to ensure we have valid credentials
+
+            # Refresh tokens before connecting; a failed refresh is not fatal if we still
+            # have a valid id_token from a previous successful auth.
             _LOGGER.debug("[%s] Refreshing tokens before MQTT connect", self._gcid[:8])
             await self._token_manager._async_refresh_tokens()
-            
+
             tokens = self._token_manager.tokens
             id_token = tokens.get(TOKEN_ID)
 
             if not id_token:
-                _LOGGER.error("[%s] Missing ID token for MQTT", self._gcid[:8])
+                _LOGGER.error("[%s] Missing ID token for MQTT — re-authentication required", self._gcid[:8])
+                self._mqtt_connecting = False
                 return
 
             def _create_and_connect():
@@ -377,35 +379,61 @@ class BMWMqttManager:
         )
 
     async def _async_handle_reconnect(self) -> None:
-        """Handle MQTT reconnection with token refresh."""
+        """Handle MQTT reconnection by tearing down the client and starting fresh.
+
+        Using async_start() rather than paho's reconnect() avoids a race between
+        paho's internal auto-reconnect loop (which reuses stale credentials) and our
+        manual credential update.  A fresh client is always created with up-to-date
+        tokens, and a retry loop with increasing delays handles transient failures.
+        """
         async with self._reconnect_lock:
-            await asyncio.sleep(5)  # Brief delay before reconnect
+            delays = [5, 15, 30, 60, 120]
+            for attempt, delay in enumerate(delays):
+                await asyncio.sleep(delay)
 
-            # Always refresh tokens before reconnecting to ensure fresh ID token
-            _LOGGER.info("[%s] Refreshing tokens before MQTT reconnect", self._gcid[:8])
-            if not await self._token_manager._async_refresh_tokens():
-                _LOGGER.error("[%s] Token refresh failed, cannot reconnect", self._gcid[:8])
-                return
+                _LOGGER.info(
+                    "[%s] MQTT reconnect attempt %d/%d",
+                    self._gcid[:8],
+                    attempt + 1,
+                    len(delays),
+                )
 
-            # Update MQTT credentials and reconnect
-            if self._mqtt_client:
-                tokens = self._token_manager.tokens
-                id_token = tokens.get(TOKEN_ID)
+                # Tear down existing client (stops paho loop thread, clears state)
+                await self._async_stop_client()
 
-                if id_token:
-                    def _reconnect():
-                        with self._mqtt_lock:
-                            if self._mqtt_client:
-                                self._mqtt_client.username_pw_set(self._gcid, id_token)
-                                try:
-                                    self._mqtt_client.reconnect()
-                                    _LOGGER.info("[%s] MQTT reconnection initiated", self._gcid[:8])
-                                except Exception as err:
-                                    _LOGGER.error("[%s] MQTT reconnect failed: %s", self._gcid[:8], err)
+                # Fresh start: refreshes tokens and creates a new paho client
+                await self.async_start()
 
-                    await self.hass.async_add_executor_job(_reconnect)
-                else:
-                    _LOGGER.error("[%s] Cannot reconnect: missing ID token", self._gcid[:8])
+                # If a client was created, the connection is in progress.
+                # _on_mqtt_connect will handle the outcome; if it fails it will
+                # schedule another _async_handle_reconnect.
+                if self._mqtt_client is not None:
+                    return
+
+                _LOGGER.warning(
+                    "[%s] MQTT reconnect attempt %d failed, retrying in %ds",
+                    self._gcid[:8],
+                    attempt + 1,
+                    delays[attempt + 1] if attempt + 1 < len(delays) else 0,
+                )
+
+            _LOGGER.error(
+                "[%s] MQTT reconnect exhausted all %d attempts",
+                self._gcid[:8],
+                len(delays),
+            )
+
+            # Surface a re-authentication notification in the HA UI so the user
+            # can renew their session without removing the integration.
+            for entry_id in list(self._token_manager._config_entries):
+                entry = self.hass.config_entries.async_get_entry(entry_id)
+                if entry:
+                    entry.async_start_reauth(self.hass)
+                    _LOGGER.warning(
+                        "[%s] Re-authentication required — check Home Assistant notifications",
+                        self._gcid[:8],
+                    )
+                    break
 
     def _on_mqtt_message(
         self,

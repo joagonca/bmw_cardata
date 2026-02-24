@@ -40,7 +40,7 @@ def parse_token_response(
     return {
         TOKEN_ACCESS: token_data.get("access_token"),
         TOKEN_REFRESH: token_data.get("refresh_token") or existing.get(TOKEN_REFRESH),
-        TOKEN_ID: token_data.get("id_token"),
+        TOKEN_ID: token_data.get("id_token") or existing.get(TOKEN_ID),
         TOKEN_GCID: gcid,
         TOKEN_EXPIRES_AT: int(time.time()) + expires_in,
         # Preserve existing refresh expiry if present (refresh doesn't reset it)
