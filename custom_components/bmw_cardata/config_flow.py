@@ -379,20 +379,39 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle re-authentication (triggered by HA UI or automatic reconnect failure)."""
         self._client_id = entry_data[CONF_CLIENT_ID]
-
-        self._code_verifier, code_challenge = _generate_pkce()
-        try:
-            self._device_code_response = await _request_device_code(
-                self.hass, self._client_id, code_challenge
-            )
-            return await self.async_step_reauth_confirm()
-        except InvalidClientError:
-            return self.async_abort(reason="invalid_client_id")
-        except Exception as err:
-            _LOGGER.error("Re-auth device code request failed: %s", err)
-            return self.async_abort(reason="api_error")
+        return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Prompt the user to start re-authentication.
+
+        The device code is NOT requested until the user clicks Submit,
+        avoiding expiration when the notification sits unread.
+        """
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # User is present — request a fresh device code now
+            self._code_verifier, code_challenge = _generate_pkce()
+            try:
+                self._device_code_response = await _request_device_code(
+                    self.hass, self._client_id, code_challenge
+                )
+                return await self.async_step_reauth_auth()
+            except InvalidClientError:
+                return self.async_abort(reason="invalid_client_id")
+            except Exception as err:
+                _LOGGER.error("Re-auth device code request failed: %s", err)
+                errors["base"] = "api_error"
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({}),
+            errors=errors,
+        )
+
+    async def async_step_reauth_auth(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Show auth URL and poll for new tokens, then update the existing entry."""
@@ -433,7 +452,7 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "auth_failed"
 
         return self.async_show_form(
-            step_id="reauth_confirm",
+            step_id="reauth_auth",
             data_schema=vol.Schema({}),
             description_placeholders={
                 "url": verification_url,
