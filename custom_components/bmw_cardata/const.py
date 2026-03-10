@@ -133,11 +133,7 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
         "opening",
         "mdi:car",
     ),
-    "vehicle.body.chargingPort.status": (
-        "Charging Port",
-        "plug",
-        "mdi:ev-plug-type2",
-    ),
+
     "vehicle.cabin.door.row1.driver.isOpen": (
         "Driver Door",
         "door",
@@ -160,9 +156,16 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
     ),
 }
 
+# Charging port keys (any plugged → Charging Port binary sensor ON)
+CHARGING_PORT_KEYS: Final[dict[str, str]] = {
+    "vehicle.powertrain.tractionBattery.charging.port.frontRight.isPlugged": "front_right",
+    "vehicle.powertrain.tractionBattery.charging.port.rearRight.isPlugged": "rear_right",
+    "vehicle.powertrain.tractionBattery.charging.port.frontLeft.isPlugged": "front_left",
+    "vehicle.powertrain.tractionBattery.charging.port.rearLeft.isPlugged": "rear_left",
+}
+
 # Binary sensor keys that require electric drivetrain (PHEV or BEV)
 ELECTRIC_BINARY_SENSOR_KEYS: Final[set[str]] = {
     "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive",
     "vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete",
-    "vehicle.body.chargingPort.status",
 }

@@ -57,7 +57,7 @@ automation:
 | Charging Profile Complete | Remote Charging Profile configuration complete | ✓ |
 | Trunk | Trunk open/closed | |
 | Hood | Hood open/closed | |
-| Charging Port | Charging port connected | ✓ |
+| Charging Port | Any charging port plugged (aggregates all port positions) | ✓ |
 | Driver Door | Driver door open/closed | |
 | Front Passenger Door | Front passenger door open/closed | |
 | Rear Left Door | Rear left door open/closed | |
@@ -208,7 +208,10 @@ vehicle.drivetrain.electricEngine.kombiRemainingElectricRange
 vehicle.powertrain.electric.range.target
 vehicle.drivetrain.electricEngine.charging.profile.climatizationActive
 vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete
-vehicle.body.chargingPort.status
+vehicle.powertrain.tractionBattery.charging.port.frontRight.isPlugged
+vehicle.powertrain.tractionBattery.charging.port.rearRight.isPlugged
+vehicle.powertrain.tractionBattery.charging.port.frontLeft.isPlugged
+vehicle.powertrain.tractionBattery.charging.port.rearLeft.isPlugged
 ```
 
 > **Tip**: You can add additional keys from BMW's Telematics Data Catalogue by updating `const.py`.
