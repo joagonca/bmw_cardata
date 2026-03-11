@@ -98,11 +98,17 @@ class BMWTokenManager:
             await self._async_refresh_tokens()
         return self._tokens
 
-    async def _async_refresh_tokens(self) -> bool:
-        """Refresh access tokens with lock to prevent concurrent refreshes."""
+    async def _async_refresh_tokens(self, force: bool = False) -> bool:
+        """Refresh access tokens with lock to prevent concurrent refreshes.
+
+        Args:
+            force: Bypass the expiry check and always refresh. Used before
+                   MQTT connect to guarantee a fresh ID token regardless of
+                   access token state.
+        """
         async with self._refresh_lock:
             # Double-check after acquiring lock (another coroutine may have refreshed)
-            if not self._needs_token_refresh():
+            if not force and not self._needs_token_refresh():
                 return True
 
             import aiohttp
@@ -247,10 +253,13 @@ class BMWMqttManager:
             
             self._mqtt_connecting = True
 
-            # Refresh tokens before connecting; a failed refresh is not fatal if we still
-            # have a valid id_token from a previous successful auth.
-            _LOGGER.debug("[%s] Refreshing tokens before MQTT connect", self._gcid[:8])
-            await self._token_manager._async_refresh_tokens()
+            # Force a token refresh before every MQTT connect.  BMW's MQTT broker
+            # authenticates with the ID token, which can be stale even when the
+            # access token is still valid (e.g. right after a re-auth device-code
+            # grant).  A failed refresh is not fatal — we fall back to the
+            # existing id_token from a previous successful auth.
+            _LOGGER.debug("[%s] Forcing token refresh before MQTT connect", self._gcid[:8])
+            await self._token_manager._async_refresh_tokens(force=True)
 
             tokens = self._token_manager.tokens
             id_token = tokens.get(TOKEN_ID)
