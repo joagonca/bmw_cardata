@@ -316,8 +316,10 @@ class BMWMqttManager:
             def _stop():
                 with self._mqtt_lock:
                     if self._mqtt_client:
-                        self._mqtt_client.loop_stop()
+                        # disconnect() before loop_stop(): the network thread
+                        # must be running to transmit the DISCONNECT packet.
                         self._mqtt_client.disconnect()
+                        self._mqtt_client.loop_stop()
 
             await self.hass.async_add_executor_job(_stop)
             self._mqtt_client = None
