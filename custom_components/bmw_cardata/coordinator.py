@@ -20,11 +20,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     API_BASE_URL,
+    CONF_MQTT_DEBUG,
     DEFAULT_SCOPES,
     CONF_CLIENT_ID,
     CONF_TOKENS,
     CONF_VIN,
     DOMAIN,
+    EVENT_MQTT_DEBUG,
     MQTT_BROKER_HOST,
     MQTT_BROKER_PORT,
     MQTT_KEEPALIVE,
@@ -671,6 +673,15 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_process_mqtt_data(self, payload: dict[str, Any]) -> None:
         """Process MQTT data and update entities."""
         updated = False
+
+        # Fire debug event if enabled in options
+        if self.config_entry.options.get(CONF_MQTT_DEBUG, False):
+            self.hass.bus.async_fire(EVENT_MQTT_DEBUG, {
+                "vin": self._vin,
+                "topic": payload.get("topic", ""),
+                "timestamp": payload.get("timestamp", ""),
+                "payload": payload,
+            })
 
         # Data is nested inside 'data' key
         data_payload = payload.get("data", {})

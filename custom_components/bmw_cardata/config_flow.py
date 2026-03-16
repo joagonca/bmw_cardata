@@ -12,14 +12,15 @@ from typing import Any
 import aiohttp
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     API_BASE_URL,
     CONF_CLIENT_ID,
+    CONF_MQTT_DEBUG,
     CONF_TOKENS,
     CONF_VEHICLE_INFO,
     CONF_VIN,
@@ -199,6 +200,14 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for BMW CarData."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> BMWCarDataOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return BMWCarDataOptionsFlowHandler()
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -459,4 +468,27 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                 "user_code": user_code,
             },
             errors=errors,
+        )
+
+
+class BMWCarDataOptionsFlowHandler(OptionsFlow):
+    """Handle BMW CarData options."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_MQTT_DEBUG,
+                        default=self.config_entry.options.get(CONF_MQTT_DEBUG, False),
+                    ): bool,
+                }
+            ),
         )

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TypeAlias
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_CLIENT_ID, CONF_TOKENS, PLATFORMS
+from .const import CONF_CLIENT_ID, CONF_MQTT_DEBUG, CONF_TOKENS, PLATFORMS
 from .coordinator import (
     BMWCarDataCoordinator,
     get_mqtt_manager,
@@ -17,6 +18,8 @@ from .coordinator import (
 )
 
 BMWCarDataConfigEntry: TypeAlias = ConfigEntry[BMWCarDataCoordinator]
+
+_LOGGER = logging.getLogger(__name__)
 
 # Token key for GCID
 TOKEN_GCID = "gcid"
@@ -55,7 +58,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: BMWCarDataConfigEntry) -
     # Forward to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    # Listen for options updates (no reload needed — coordinator reads options live)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
     return True
+
+
+async def _async_options_updated(
+    hass: HomeAssistant, entry: BMWCarDataConfigEntry
+) -> None:
+    """Handle options update."""
+    debug_enabled = entry.options.get(CONF_MQTT_DEBUG, False)
+    _LOGGER.debug(
+        "Options updated for %s: mqtt_debug=%s",
+        entry.data.get("vin", "?"),
+        debug_enabled,
+    )
 
 
 async def async_unload_entry(

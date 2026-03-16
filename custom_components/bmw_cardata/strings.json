@@ -52,7 +52,13 @@
     "step": {
       "init": {
         "title": "BMW CarData Options",
-        "description": "Configure integration options."
+        "description": "Configure integration options.",
+        "data": {
+          "mqtt_debug": "Enable MQTT debug events"
+        },
+        "data_description": {
+          "mqtt_debug": "When enabled, fires bmw_cardata_mqtt_debug events for every received MQTT message. Subscribe in Developer Tools → Events to inspect raw payloads."
+        }
       }
     }
   }

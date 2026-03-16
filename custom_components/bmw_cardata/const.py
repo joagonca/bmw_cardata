@@ -13,6 +13,7 @@ CONF_CLIENT_ID: Final = "client_id"
 CONF_VIN: Final = "vin"
 CONF_TOKENS: Final = "tokens"
 CONF_VEHICLE_INFO: Final = "vehicle_info"
+CONF_MQTT_DEBUG: Final = "mqtt_debug"
 
 # Token keys
 TOKEN_ACCESS: Final = "access_token"
@@ -37,6 +38,9 @@ MQTT_TOPIC_PATTERN: Final = "{gcid}/{vin}"
 # OAuth settings
 DEFAULT_SCOPES: Final = "authenticate_user openid cardata:streaming:read cardata:api:read"
 TOKEN_REFRESH_BUFFER: Final = 300  # Refresh 5 minutes before expiry
+
+# Events
+EVENT_MQTT_DEBUG: Final = "bmw_cardata_mqtt_debug"
 
 # Platforms
 PLATFORMS: Final = ["sensor", "binary_sensor", "device_tracker"]

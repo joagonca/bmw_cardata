@@ -10,6 +10,7 @@ A Home Assistant custom integration for the BMW CarData API, providing real-time
 - **Multi-vehicle support** - add multiple vehicles from the same BMW account with shared authentication
 - **Location tracking** - device tracker entity for zone-based automations (enter/leave events)
 - **State persistence** - entity values are preserved across Home Assistant restarts
+- **MQTT debug mode** - inspect raw MQTT messages in real time via Home Assistant events
 
 ## Supported Entities
 
@@ -152,6 +153,35 @@ The integration uses OAuth 2.0 Device Code Flow with PKCE:
 - This occurs when MQTT is disconnected and no previous data exists
 - Once data is received, entities retain their last known value even if MQTT temporarily disconnects
 - After a restart, previous values are restored automatically
+
+## MQTT Debug Mode
+
+The integration includes a debug mode that fires Home Assistant events for every received MQTT message, allowing you to inspect raw payloads without polluting HA logs.
+
+### Enabling
+
+1. Go to **Settings → Devices & Services → BMW CarData → Configure**
+2. Toggle **Enable MQTT debug events** on
+3. Click **Submit**
+
+No restart is required — the toggle takes effect immediately.
+
+### Viewing Messages
+
+1. Go to **Developer Tools → Events**
+2. Under "Listen to events", enter `bmw_cardata_mqtt_debug`
+3. Click **Start listening**
+
+Each event contains:
+
+| Field | Description |
+|-------|-------------|
+| `vin` | Vehicle identification number |
+| `topic` | MQTT topic (`{gcid}/{vin}`) |
+| `timestamp` | Message timestamp from BMW |
+| `payload` | Full raw MQTT message payload |
+
+> **Tip**: The toggle is per-vehicle, so you can debug a single vehicle without flooding events from all configured vehicles.
 
 ## Development
 
