@@ -11,6 +11,7 @@ A Home Assistant custom integration for the BMW CarData API, providing real-time
 - **Location tracking** - device tracker entity for zone-based automations (enter/leave events)
 - **State persistence** - entity values are preserved across Home Assistant restarts
 - **MQTT debug mode** - inspect raw MQTT messages in real time via Home Assistant events
+- **Diagnostics download** - export a full snapshot (connection state, telemetry, last 100 MQTT messages) from the device page
 
 ## Supported Entities
 
@@ -183,6 +184,30 @@ Each event contains:
 
 > **Tip**: The toggle is per-vehicle, so you can debug a single vehicle without flooding events from all configured vehicles.
 
+## Diagnostics Download
+
+The integration supports Home Assistant's built-in diagnostics platform, allowing you to download a full JSON snapshot for troubleshooting or bug reports.
+
+### What's included
+
+| Section | Contents |
+|---------|----------|
+| `vehicle` | VIN suffix, brand, model, drivetrain |
+| `connection` | MQTT connected status, token expiry times |
+| `options` | Current integration options |
+| `telemetry_snapshot` | All current entity values with timestamps |
+| `mqtt_message_buffer` | Last 100 MQTT messages (ring buffer) |
+
+Sensitive data (full VIN, tokens, GCID) is not included in the export.
+
+### How to download
+
+1. Go to **Settings → Devices & Services → BMW CarData**
+2. Click on your vehicle device
+3. Click the **⋮** (three dots) → **Download Diagnostics**
+
+The ring buffer captures messages continuously — no need to enable debug mode first.
+
 ## Development
 
 ### File Structure
@@ -194,6 +219,7 @@ custom_components/bmw_cardata/
 ├── config_flow.py       # Configuration UI flow
 ├── const.py             # Constants and entity definitions
 ├── coordinator.py       # Data coordinator with MQTT and token management
+├── diagnostics.py       # Diagnostics download support
 ├── entity.py            # Base entity class with state restoration
 ├── sensor.py            # Sensor entities
 ├── binary_sensor.py     # Binary sensor entities

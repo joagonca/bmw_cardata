@@ -42,6 +42,10 @@ TOKEN_REFRESH_BUFFER: Final = 300  # Refresh 5 minutes before expiry
 # Events
 EVENT_MQTT_DEBUG: Final = "bmw_cardata_mqtt_debug"
 
+# Diagnostics
+DIAG_MAX_MESSAGES: Final = 100
+CONF_MQTT_BUFFER_SIZE: Final = "mqtt_buffer_size"
+
 # Platforms
 PLATFORMS: Final = ["sensor", "binary_sensor", "device_tracker"]
 

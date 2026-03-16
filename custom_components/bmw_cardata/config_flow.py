@@ -20,12 +20,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     API_BASE_URL,
     CONF_CLIENT_ID,
+    CONF_MQTT_BUFFER_SIZE,
     CONF_MQTT_DEBUG,
     CONF_TOKENS,
     CONF_VEHICLE_INFO,
     CONF_VIN,
     DEFAULT_SCOPES,
     DEVICE_CODE_ENDPOINT,
+    DIAG_MAX_MESSAGES,
     DOMAIN,
     TOKEN_ACCESS,
     TOKEN_ENDPOINT,
@@ -489,6 +491,12 @@ class BMWCarDataOptionsFlowHandler(OptionsFlow):
                         CONF_MQTT_DEBUG,
                         default=self.config_entry.options.get(CONF_MQTT_DEBUG, False),
                     ): bool,
+                    vol.Optional(
+                        CONF_MQTT_BUFFER_SIZE,
+                        default=self.config_entry.options.get(
+                            CONF_MQTT_BUFFER_SIZE, DIAG_MAX_MESSAGES
+                        ),
+                    ): vol.All(int, vol.Range(min=10, max=1000)),
                 }
             ),
         )

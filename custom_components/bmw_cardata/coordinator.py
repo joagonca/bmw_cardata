@@ -8,6 +8,7 @@ import logging
 import ssl
 import threading
 import time
+from collections import deque
 from datetime import datetime
 from typing import Any, Callable
 
@@ -21,10 +22,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     API_BASE_URL,
     CONF_MQTT_DEBUG,
+    CONF_MQTT_BUFFER_SIZE,
     DEFAULT_SCOPES,
     CONF_CLIENT_ID,
     CONF_TOKENS,
     CONF_VIN,
+    DIAG_MAX_MESSAGES,
     DOMAIN,
     EVENT_MQTT_DEBUG,
     MQTT_BROKER_HOST,
@@ -573,6 +576,12 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Initialize data store
         self.data: dict[str, Any] = {}
 
+        # Ring buffer for diagnostics (last N MQTT messages)
+        buffer_size = config_entry.options.get(CONF_MQTT_BUFFER_SIZE, DIAG_MAX_MESSAGES)
+        self.mqtt_message_buffer: deque[dict[str, Any]] = deque(
+            maxlen=buffer_size
+        )
+
     @property
     def vin(self) -> str:
         """Return the VIN."""
@@ -682,6 +691,13 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "timestamp": payload.get("timestamp", ""),
                 "payload": payload,
             })
+
+        # Store in ring buffer for diagnostics
+        self.mqtt_message_buffer.append({
+            "timestamp": payload.get("timestamp", ""),
+            "keys": list(payload.get("data", {}).keys()),
+            "payload": payload,
+        })
 
         # Data is nested inside 'data' key
         data_payload = payload.get("data", {})

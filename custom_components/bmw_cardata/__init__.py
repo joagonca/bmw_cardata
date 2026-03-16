@@ -8,7 +8,7 @@ from typing import TypeAlias
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_CLIENT_ID, CONF_MQTT_DEBUG, CONF_TOKENS, PLATFORMS
+from .const import CONF_CLIENT_ID, CONF_MQTT_BUFFER_SIZE, CONF_MQTT_DEBUG, CONF_TOKENS, DIAG_MAX_MESSAGES, PLATFORMS
 from .coordinator import (
     BMWCarDataCoordinator,
     get_mqtt_manager,
@@ -68,11 +68,21 @@ async def _async_options_updated(
     hass: HomeAssistant, entry: BMWCarDataConfigEntry
 ) -> None:
     """Handle options update."""
-    debug_enabled = entry.options.get(CONF_MQTT_DEBUG, False)
+    coordinator: BMWCarDataCoordinator = entry.runtime_data
+
+    # Resize MQTT message buffer if changed
+    new_size = entry.options.get(CONF_MQTT_BUFFER_SIZE, DIAG_MAX_MESSAGES)
+    if coordinator.mqtt_message_buffer.maxlen != new_size:
+        from collections import deque
+
+        old_messages = list(coordinator.mqtt_message_buffer)
+        coordinator.mqtt_message_buffer = deque(old_messages, maxlen=new_size)
+
     _LOGGER.debug(
-        "Options updated for %s: mqtt_debug=%s",
+        "Options updated for %s: mqtt_debug=%s, buffer_size=%s",
         entry.data.get("vin", "?"),
-        debug_enabled,
+        entry.options.get(CONF_MQTT_DEBUG, False),
+        new_size,
     )
 
 
