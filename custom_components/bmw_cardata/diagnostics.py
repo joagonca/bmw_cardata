@@ -9,9 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import (
-    CONF_TOKENS,
     CONF_VEHICLE_INFO,
-    CONF_VIN,
     TOKEN_EXPIRES_AT,
     TOKEN_REFRESH_EXPIRES_AT,
 )
