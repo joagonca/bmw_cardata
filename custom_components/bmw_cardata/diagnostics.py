@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -42,12 +43,10 @@ async def async_get_config_entry_diagnostics(
             ),
         },
         "options": dict(entry.options),
-        "telemetry_snapshot": {
-            key: value for key, value in coordinator.data.items()
-        },
+        "telemetry_snapshot": copy.deepcopy(coordinator.data),
         "mqtt_message_buffer": {
             "count": len(coordinator.mqtt_message_buffer),
             "max_size": coordinator.mqtt_message_buffer.maxlen,
-            "messages": list(coordinator.mqtt_message_buffer),
+            "messages": copy.deepcopy(list(coordinator.mqtt_message_buffer)),
         },
     }

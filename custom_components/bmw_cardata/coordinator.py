@@ -101,10 +101,10 @@ class BMWTokenManager:
     async def async_get_tokens(self) -> dict[str, Any]:
         """Get valid tokens, refreshing if necessary."""
         if self._needs_token_refresh():
-            await self._async_refresh_tokens()
+            await self.async_refresh_tokens()
         return self._tokens
 
-    async def _async_refresh_tokens(self, force: bool = False) -> bool:
+    async def async_refresh_tokens(self, force: bool = False) -> bool:
         """Refresh access tokens with lock to prevent concurrent refreshes.
 
         Args:
@@ -268,7 +268,7 @@ class BMWMqttManager:
             # grant).  A failed refresh is not fatal — we fall back to the
             # existing id_token from a previous successful auth.
             _LOGGER.debug("[%s] Forcing token refresh before MQTT connect", self._gcid[:8])
-            await self._token_manager._async_refresh_tokens(force=True)
+            await self._token_manager.async_refresh_tokens(force=True)
 
             tokens = self._token_manager.tokens
             id_token = tokens.get(TOKEN_ID)
@@ -521,14 +521,12 @@ class BMWMqttManager:
 
 def get_token_manager(hass: HomeAssistant, client_id: str) -> BMWTokenManager:
     """Get or create a token manager for the given client_id."""
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {"token_managers": {}, "mqtt_managers": {}}
-    
+    hass.data.setdefault(DOMAIN, {"token_managers": {}, "mqtt_managers": {}})
     managers = hass.data[DOMAIN].setdefault("token_managers", {})
-    
+
     if client_id not in managers:
         managers[client_id] = BMWTokenManager(hass, client_id)
-    
+
     return managers[client_id]
 
 
@@ -536,14 +534,12 @@ def get_mqtt_manager(
     hass: HomeAssistant, token_manager: BMWTokenManager, gcid: str
 ) -> BMWMqttManager:
     """Get or create an MQTT manager for the given GCID."""
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {"token_managers": {}, "mqtt_managers": {}}
-    
+    hass.data.setdefault(DOMAIN, {"token_managers": {}, "mqtt_managers": {}})
     managers = hass.data[DOMAIN].setdefault("mqtt_managers", {})
-    
+
     if gcid not in managers:
         managers[gcid] = BMWMqttManager(hass, token_manager, gcid)
-    
+
     return managers[gcid]
 
 
@@ -619,14 +615,6 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def is_bev(self) -> bool:
         """Return True if vehicle is a battery electric vehicle."""
         return self.vehicle_info.get("drive_train") == DRIVETRAIN_BEV
-
-    def _needs_token_refresh(self) -> bool:
-        """Check if access token needs refresh."""
-        return self._token_manager._needs_token_refresh()
-
-    async def _async_refresh_tokens(self) -> bool:
-        """Refresh access tokens via shared token manager."""
-        return await self._token_manager._async_refresh_tokens()
 
     async def async_get_access_token(self) -> str | None:
         """Get a valid access token, refreshing if necessary."""
