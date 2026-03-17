@@ -9,13 +9,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import CONF_CLIENT_ID, CONF_MQTT_BUFFER_SIZE, CONF_MQTT_DEBUG, CONF_TOKENS, DIAG_MAX_MESSAGES, PLATFORMS
-from .coordinator import (
-    BMWCarDataCoordinator,
-    get_mqtt_manager,
-    get_token_manager,
-    remove_mqtt_manager,
-    remove_token_manager,
-)
+from .coordinator import BMWCarDataCoordinator
+from .mqtt_manager import get_mqtt_manager, remove_mqtt_manager
+from .token_manager import get_token_manager, remove_token_manager
 
 BMWCarDataConfigEntry: TypeAlias = ConfigEntry[BMWCarDataCoordinator]
 
