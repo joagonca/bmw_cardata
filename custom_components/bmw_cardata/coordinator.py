@@ -9,7 +9,7 @@ import ssl
 import threading
 import time
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 import paho.mqtt.client as mqtt
@@ -20,7 +20,6 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
-    API_BASE_URL,
     CONF_MQTT_DEBUG,
     CONF_MQTT_BUFFER_SIZE,
     DEFAULT_SCOPES,
@@ -29,6 +28,8 @@ from .const import (
     CONF_VIN,
     DIAG_MAX_MESSAGES,
     DOMAIN,
+    DRIVETRAIN_BEV,
+    DRIVETRAIN_CONV,
     EVENT_MQTT_DEBUG,
     MQTT_BROKER_HOST,
     MQTT_BROKER_PORT,
@@ -42,7 +43,7 @@ from .const import (
     TOKEN_REFRESH_BUFFER,
     TOKEN_REFRESH_EXPIRES_AT,
 )
-from .utils import format_token_expiry, parse_token_response
+from .utils import async_bmw_api_get, extract_telemetry_value, format_token_expiry, parse_token_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -609,6 +610,16 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Return vehicle info."""
         return self.config_entry.data.get("vehicle_info", {})
 
+    @property
+    def is_electric(self) -> bool:
+        """Return True if vehicle is electric (PHEV or BEV)."""
+        return self.vehicle_info.get("drive_train") != DRIVETRAIN_CONV
+
+    @property
+    def is_bev(self) -> bool:
+        """Return True if vehicle is a battery electric vehicle."""
+        return self.vehicle_info.get("drive_train") == DRIVETRAIN_BEV
+
     def _needs_token_refresh(self) -> bool:
         """Check if access token needs refresh."""
         return self._token_manager._needs_token_refresh()
@@ -632,25 +643,12 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data: dict[str, Any] = {}
 
         try:
-            session = async_get_clientsession(self.hass)
-            async with asyncio.timeout(30):
-                async with session.get(
-                    f"{API_BASE_URL}/customers/vehicles/{self._vin}/basicData",
-                    headers={
-                        "Authorization": f"Bearer {access_token}",
-                        "x-version": "v1",
-                    },
-                ) as response:
-                    if response.status == 200:
-                        basic_data = await response.json()
-                        data["basic_data"] = basic_data
-                        _LOGGER.debug("[%s] Fetched basic vehicle data", self._vin[-6:])
-                    else:
-                        _LOGGER.warning(
-                            "[%s] Failed to fetch basic data (HTTP %d)",
-                            self._vin[-6:],
-                            response.status,
-                        )
+            basic_data = await async_bmw_api_get(
+                self.hass, access_token,
+                f"/customers/vehicles/{self._vin}/basicData",
+            )
+            data["basic_data"] = basic_data
+            _LOGGER.debug("[%s] Fetched basic vehicle data", self._vin[-6:])
 
         except asyncio.TimeoutError:
             _LOGGER.warning("[%s] Timeout fetching initial data", self._vin[-6:])
@@ -715,15 +713,11 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data_payload = payload.get("data", {})
         
         for key, value_obj in data_payload.items():
-            # value_obj has structure: {'timestamp': '...', 'value': ...}
-            if isinstance(value_obj, dict) and "value" in value_obj:
-                actual_value = value_obj.get("value")
-                timestamp = value_obj.get("timestamp", datetime.utcnow().isoformat())
-            else:
-                actual_value = value_obj
-                timestamp = datetime.utcnow().isoformat()
+            actual_value, timestamp = extract_telemetry_value(value_obj)
+            if timestamp is None:
+                timestamp = datetime.now(tz=timezone.utc).isoformat()
             
-            # Store the value
+            # Store the value in normalised format
             self.data[key] = {
                 "value": actual_value,
                 "timestamp": timestamp,

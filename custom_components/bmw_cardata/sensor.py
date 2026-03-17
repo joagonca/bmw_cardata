@@ -16,8 +16,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     COMBUSTION_SENSOR_KEYS,
-    DRIVETRAIN_BEV,
-    DRIVETRAIN_CONV,
     ELECTRIC_ENUM_SENSOR_KEYS,
     ELECTRIC_SENSOR_KEYS,
     KNOWN_ENUM_SENSORS,
@@ -52,20 +50,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up BMW CarData sensors."""
     coordinator: BMWCarDataCoordinator = entry.runtime_data
-    drive_train = coordinator.vehicle_info.get("drive_train")
-    is_electric = drive_train != DRIVETRAIN_CONV
-    is_bev = drive_train == DRIVETRAIN_BEV
 
     # Create entities for all known sensors
     entities: list[BMWCarDataSensor] = []
 
     for key, (name, unit, device_class, icon) in KNOWN_SENSORS.items():
         # Skip electric-only sensors for conventional vehicles
-        if not is_electric and key in ELECTRIC_SENSOR_KEYS:
+        if not coordinator.is_electric and key in ELECTRIC_SENSOR_KEYS:
             continue
 
         # Skip combustion-only sensors for BEV vehicles
-        if is_bev and key in COMBUSTION_SENSOR_KEYS:
+        if coordinator.is_bev and key in COMBUSTION_SENSOR_KEYS:
             continue
 
         entities.append(
@@ -85,7 +80,7 @@ async def async_setup_entry(
     enum_entities: list[BMWCarDataEnumSensor] = []
 
     for key, (name, options, icon) in KNOWN_ENUM_SENSORS.items():
-        if not is_electric and key in ELECTRIC_ENUM_SENSOR_KEYS:
+        if not coordinator.is_electric and key in ELECTRIC_ENUM_SENSOR_KEYS:
             continue
 
         enum_entities.append(

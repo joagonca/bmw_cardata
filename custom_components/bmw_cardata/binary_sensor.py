@@ -8,7 +8,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    DRIVETRAIN_CONV,
     ELECTRIC_BINARY_SENSOR_KEYS,
     KNOWN_BINARY_SENSORS,
 )
@@ -39,15 +38,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up BMW CarData binary sensors."""
     coordinator: BMWCarDataCoordinator = entry.runtime_data
-    drive_train = coordinator.vehicle_info.get("drive_train")
-    is_electric = drive_train != DRIVETRAIN_CONV
 
     # Create entities for all known binary sensors
     entities: list[BMWCarDataBinarySensor] = []
 
     for key, (name, device_class, icon) in KNOWN_BINARY_SENSORS.items():
         # Skip electric-only sensors for conventional vehicles
-        if not is_electric and key in ELECTRIC_BINARY_SENSOR_KEYS:
+        if not coordinator.is_electric and key in ELECTRIC_BINARY_SENSOR_KEYS:
             continue
 
         entities.append(

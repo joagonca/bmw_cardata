@@ -17,7 +17,6 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
-    API_BASE_URL,
     CONF_CLIENT_ID,
     CONF_MQTT_BUFFER_SIZE,
     CONF_MQTT_DEBUG,
@@ -31,7 +30,7 @@ from .const import (
     TOKEN_ACCESS,
     TOKEN_ENDPOINT,
 )
-from .utils import parse_token_response
+from .utils import async_bmw_api_get, parse_token_response
 
 _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -135,46 +134,36 @@ async def _get_vehicles(
     hass: HomeAssistant, access_token: str
 ) -> list[dict[str, Any]]:
     """Get list of mapped vehicles."""
-    session = async_get_clientsession(hass)
-    async with asyncio.timeout(30):
-        async with session.get(
-            f"{API_BASE_URL}/customers/vehicles/mappings",
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "x-version": "v1",
-            },
-        ) as response:
-            response.raise_for_status()
-            vehicles = await response.json()
-            _LOGGER.debug("Found %d vehicle mappings", len(vehicles))
-            return vehicles
+    vehicles = await async_bmw_api_get(
+        hass, access_token, "/customers/vehicles/mappings"
+    )
+    _LOGGER.debug("Found %d vehicle mappings", len(vehicles))
+    return vehicles
 
 
 async def _get_basic_data(
     hass: HomeAssistant, access_token: str, vin: str
 ) -> dict[str, Any]:
     """Get basic vehicle data to validate VIN access."""
-    session = async_get_clientsession(hass)
-    async with asyncio.timeout(30):
-        async with session.get(
-            f"{API_BASE_URL}/customers/vehicles/{vin}/basicData",
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "x-version": "v1",
-            },
-        ) as response:
-            if response.status == 403:
-                _LOGGER.warning("No permission to access VIN %s", vin[-6:])
-                raise VINPermissionError()
-            response.raise_for_status()
-            data = await response.json()
-            _LOGGER.debug(
-                "Vehicle: %s %s (%s)",
-                data.get("brand", "?"),
-                data.get("modelName", "?"),
-                vin[-6:],
-            )
-            return data
+    import aiohttp
+
+    try:
+        data = await async_bmw_api_get(
+            hass, access_token, f"/customers/vehicles/{vin}/basicData"
+        )
+    except aiohttp.ClientResponseError as err:
+        if err.status == 403:
+            _LOGGER.warning("No permission to access VIN %s", vin[-6:])
+            raise VINPermissionError() from err
+        raise
+
+    _LOGGER.debug(
+        "Vehicle: %s %s (%s)",
+        data.get("brand", "?"),
+        data.get("modelName", "?"),
+        vin[-6:],
+    )
+    return data
 
 
 class InvalidClientError(Exception):

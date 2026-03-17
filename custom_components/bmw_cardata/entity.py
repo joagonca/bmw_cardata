@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import ATTRIBUTION, DOMAIN
 from .coordinator import BMWCarDataCoordinator
+from .utils import extract_telemetry_value
 
 
 class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator], RestoreEntity):
@@ -64,12 +65,7 @@ class BMWCarDataEntity(CoordinatorEntity[BMWCarDataCoordinator], RestoreEntity):
         """Process and cache data from coordinator. Called once per update."""
         data = self.coordinator.data.get(self._key)
         if data is not None:
-            if isinstance(data, dict) and "value" in data:
-                self._last_value = data["value"]
-                self._last_timestamp = data.get("timestamp")
-            else:
-                self._last_value = data
-                self._last_timestamp = None
+            self._last_value, self._last_timestamp = extract_telemetry_value(data)
             self._has_received_data = True
 
     @property

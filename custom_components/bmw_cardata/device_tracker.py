@@ -17,6 +17,7 @@ from .const import (
 )
 from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
+from .utils import extract_telemetry_value
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class BMWCarDataDeviceTracker(BMWCarDataEntity, TrackerEntity):
             data = self.coordinator.data.get(key)
             if data is None:
                 return None
-            value = data.get("value") if isinstance(data, dict) else data
+            value, _ = extract_telemetry_value(data)
             return float(value) if isinstance(value, (int, float)) else None
 
         lat = _extract(LOCATION_LATITUDE_KEY)
@@ -99,8 +100,10 @@ class BMWCarDataDeviceTracker(BMWCarDataEntity, TrackerEntity):
 
         # Update timestamp from latitude key
         lat_data = self.coordinator.data.get(LOCATION_LATITUDE_KEY)
-        if isinstance(lat_data, dict) and "timestamp" in lat_data:
-            self._last_timestamp = lat_data["timestamp"]
+        if lat_data is not None:
+            _, ts = extract_telemetry_value(lat_data)
+            if ts:
+                self._last_timestamp = ts
 
     @property
     def available(self) -> bool:

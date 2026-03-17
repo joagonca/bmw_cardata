@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from typing import Any
 
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
 from .const import (
+    API_BASE_URL,
     TOKEN_ACCESS,
     TOKEN_EXPIRES_AT,
     TOKEN_GCID,
@@ -13,6 +19,8 @@ from .const import (
     TOKEN_REFRESH,
     TOKEN_REFRESH_EXPIRES_AT,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def parse_token_response(
@@ -63,3 +71,46 @@ def format_token_expiry(expires_at: int) -> str:
     if remaining < 3600:
         return f"{remaining // 60}m"
     return f"{remaining // 3600}h {(remaining % 3600) // 60}m"
+
+
+async def async_bmw_api_get(
+    hass: HomeAssistant, access_token: str, path: str
+) -> dict[str, Any]:
+    """Make an authenticated GET request to the BMW CarData REST API.
+
+    Args:
+        hass: Home Assistant instance (used for shared aiohttp session).
+        access_token: Bearer token for authorization.
+        path: API path relative to API_BASE_URL (e.g., "/customers/vehicles/mappings").
+
+    Returns:
+        Parsed JSON response.
+
+    Raises:
+        aiohttp.ClientResponseError: On non-2xx status via raise_for_status().
+    """
+    session = async_get_clientsession(hass)
+    async with asyncio.timeout(30):
+        async with session.get(
+            f"{API_BASE_URL}{path}",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-version": "v1",
+            },
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+
+
+def extract_telemetry_value(data: Any) -> tuple[Any, str | None]:
+    """Extract value and timestamp from a coordinator data entry.
+
+    BMW telemetry data is stored as ``{"value": ..., "timestamp": ...}`` dicts.
+    This helper normalises the extraction so callers don't repeat the isinstance check.
+
+    Returns:
+        (value, timestamp) tuple.  timestamp is None when data is not a dict.
+    """
+    if isinstance(data, dict) and "value" in data:
+        return data["value"], data.get("timestamp")
+    return data, None
