@@ -80,12 +80,6 @@ KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] 
         "distance",
         "mdi:battery-charging",
     ),
-    "vehicle.powertrain.electric.range.target": (
-        "Target Electric Range",
-        "km",
-        "distance",
-        "mdi:target",
-    ),
     "vehicle.chassis.axle.row1.wheel.left.tire.pressure": (
         "Front Left Tire Pressure",
         "kPa",
@@ -110,12 +104,36 @@ KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] 
         "pressure",
         "mdi:car-tire-alert",
     ),
+    "vehicle.drivetrain.batteryManagement.header": (
+        "Battery",
+        "%",
+        "battery",
+        "mdi:battery",
+    ),
+    "vehicle.drivetrain.fuelSystem.level": (
+        "Fuel Level",
+        "%",
+        None,  # No built-in HA device class for fuel level
+        "mdi:gas-station",
+    ),
+    "vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged": (
+        "Energy to Full Charge",
+        "kWh",
+        "energy",
+        "mdi:battery-charging",
+    ),
 }
 
 # Sensor keys that require electric drivetrain (PHEV or BEV)
 ELECTRIC_SENSOR_KEYS: Final[set[str]] = {
     "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange",
-    "vehicle.powertrain.electric.range.target",
+    "vehicle.drivetrain.batteryManagement.header",
+    "vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged",
+}
+
+# Sensor keys that require combustion engine (CONV or PHEV, not BEV)
+COMBUSTION_SENSOR_KEYS: Final[set[str]] = {
+    "vehicle.drivetrain.fuelSystem.level",
 }
 
 # Known binary sensor keys with metadata
@@ -126,13 +144,13 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
         None,
         "mdi:air-conditioner",
     ),
-    "vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete": (
-        "Charging Profile Complete",
-        None,
-        "mdi:check-circle",
-    ),
     "vehicle.body.trunk.isOpen": (
         "Trunk",
+        "opening",
+        "mdi:car-back",
+    ),
+    "vehicle.body.trunk.door.isOpen": (
+        "Trunk Door",
         "opening",
         "mdi:car-back",
     ),
@@ -162,18 +180,57 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
         "door",
         "mdi:car-door",
     ),
+    "vehicle.body.chargingPort.status": (
+        "Charging Port",
+        "plug",
+        "mdi:ev-plug-type2",
+    ),
 }
 
-# Charging port keys (any plugged → Charging Port binary sensor ON)
-CHARGING_PORT_KEYS: Final[dict[str, str]] = {
-    "vehicle.powertrain.tractionBattery.charging.port.frontRight.isPlugged": "front_right",
-    "vehicle.powertrain.tractionBattery.charging.port.rearRight.isPlugged": "rear_right",
-    "vehicle.powertrain.tractionBattery.charging.port.frontLeft.isPlugged": "front_left",
-    "vehicle.powertrain.tractionBattery.charging.port.rearLeft.isPlugged": "rear_left",
+# Known enum sensor keys with metadata
+# Format: key -> (name, options, icon)
+KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None]]] = {
+    "vehicle.drivetrain.electricEngine.charging.status": (
+        "Charging Status",
+        [
+            "nocharging",
+            "initialization",
+            "chargingactive",
+            "chargingpaused",
+            "chargingended",
+            "chargingerror",
+        ],
+        "mdi:ev-station",
+    ),
+    "vehicle.cabin.window.row1.driver.status": (
+        "Driver Window",
+        ["open", "intermediate", "closed"],
+        "mdi:car-windshield",
+    ),
+    "vehicle.cabin.window.row1.passenger.status": (
+        "Front Passenger Window",
+        ["open", "intermediate", "closed"],
+        "mdi:car-windshield",
+    ),
+    "vehicle.cabin.window.row2.driver.status": (
+        "Rear Left Window",
+        ["open", "intermediate", "closed"],
+        "mdi:car-windshield",
+    ),
+    "vehicle.cabin.window.row2.passenger.status": (
+        "Rear Right Window",
+        ["open", "intermediate", "closed"],
+        "mdi:car-windshield",
+    ),
+}
+
+# Enum sensor keys that require electric drivetrain (PHEV or BEV)
+ELECTRIC_ENUM_SENSOR_KEYS: Final[set[str]] = {
+    "vehicle.drivetrain.electricEngine.charging.status",
 }
 
 # Binary sensor keys that require electric drivetrain (PHEV or BEV)
 ELECTRIC_BINARY_SENSOR_KEYS: Final[set[str]] = {
     "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive",
-    "vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete",
+    "vehicle.body.chargingPort.status",
 }

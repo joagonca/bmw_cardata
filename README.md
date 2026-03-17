@@ -41,25 +41,31 @@ automation:
 
 | Entity | Description | Unit | Electric Only |
 |--------|-------------|------|---------------|
-| Battery | Calculated battery percentage (Electric Range / Target Electric Range) | % | ✓ |
 | Odometer | Total distance travelled | km | |
 | Total Range | Combined remaining range (fuel + electric) | km | |
 | Electric Range | Remaining electric-only range | km | ✓ |
-| Target Electric Range | Target range based on charge settings | km | ✓ |
+| Battery | Battery charge level | % | ✓ |
+| Fuel Level | Fuel tank level | % | |
+| Energy to Full Charge | Energy needed to fully charge the battery | kWh | ✓ |
 | Front Left Tire Pressure | Tire pressure | kPa | |
 | Front Right Tire Pressure | Tire pressure | kPa | |
 | Rear Left Tire Pressure | Tire pressure | kPa | |
 | Rear Right Tire Pressure | Tire pressure | kPa | |
+| Charging Status | Current charging status (nocharging, initialization, chargingactive, chargingpaused, chargingended, chargingerror) | — | ✓ |
+| Driver Window | Window status (open, intermediate, closed) | — | |
+| Front Passenger Window | Window status (open, intermediate, closed) | — | |
+| Rear Left Window | Window status (open, intermediate, closed) | — | |
+| Rear Right Window | Window status (open, intermediate, closed) | — | |
 
 ### Binary Sensors
 
 | Entity | Description | Electric Only |
 |--------|-------------|---------------|
 | Charging Climatization | Cabin pre-conditioning active during charging | ✓ |
-| Charging Profile Complete | Remote Charging Profile configuration complete | ✓ |
 | Trunk | Trunk open/closed | |
+| Trunk Door | Trunk door open/closed | |
 | Hood | Hood open/closed | |
-| Charging Port | Any charging port plugged (aggregates all port positions) | ✓ |
+| Charging Port | Charging port connected/disconnected | ✓ |
 | Driver Door | Driver door open/closed | |
 | Front Passenger Door | Front passenger door open/closed | |
 | Rear Left Door | Rear left door open/closed | |
@@ -231,7 +237,7 @@ custom_components/bmw_cardata/
 
 ### Adding New Entities
 
-To add new entities, update `KNOWN_SENSORS` or `KNOWN_BINARY_SENSORS` in `const.py`.
+To add new entities, update `KNOWN_SENSORS`, `KNOWN_BINARY_SENSORS`, or `KNOWN_ENUM_SENSORS` in `const.py`.
 
 ## Required Streaming Keys
 
@@ -242,16 +248,22 @@ When configuring your container in the BMW CarData Portal, add these technical d
 ```
 vehicle.vehicle.travelledDistance
 vehicle.drivetrain.lastRemainingRange
+vehicle.drivetrain.fuelSystem.level
 vehicle.chassis.axle.row1.wheel.left.tire.pressure
 vehicle.chassis.axle.row1.wheel.right.tire.pressure
 vehicle.chassis.axle.row2.wheel.left.tire.pressure
 vehicle.chassis.axle.row2.wheel.right.tire.pressure
 vehicle.body.trunk.isOpen
+vehicle.body.trunk.door.isOpen
 vehicle.body.hood.isOpen
 vehicle.cabin.door.row1.driver.isOpen
 vehicle.cabin.door.row1.passenger.isOpen
 vehicle.cabin.door.row2.driver.isOpen
 vehicle.cabin.door.row2.passenger.isOpen
+vehicle.cabin.window.row1.driver.status
+vehicle.cabin.window.row1.passenger.status
+vehicle.cabin.window.row2.driver.status
+vehicle.cabin.window.row2.passenger.status
 vehicle.cabin.infotainment.navigation.currentLocation.latitude
 vehicle.cabin.infotainment.navigation.currentLocation.longitude
 vehicle.cabin.infotainment.navigation.currentLocation.altitude
@@ -261,13 +273,11 @@ vehicle.cabin.infotainment.navigation.currentLocation.altitude
 
 ```
 vehicle.drivetrain.electricEngine.kombiRemainingElectricRange
-vehicle.powertrain.electric.range.target
+vehicle.drivetrain.batteryManagement.header
+vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged
+vehicle.drivetrain.electricEngine.charging.status
 vehicle.drivetrain.electricEngine.charging.profile.climatizationActive
-vehicle.drivetrain.electricEngine.charging.profile.isRcpConfigComplete
-vehicle.powertrain.tractionBattery.charging.port.frontRight.isPlugged
-vehicle.powertrain.tractionBattery.charging.port.rearRight.isPlugged
-vehicle.powertrain.tractionBattery.charging.port.frontLeft.isPlugged
-vehicle.powertrain.tractionBattery.charging.port.rearLeft.isPlugged
+vehicle.body.chargingPort.status
 ```
 
 > **Tip**: You can add additional keys from BMW's Telematics Data Catalogue by updating `const.py`.

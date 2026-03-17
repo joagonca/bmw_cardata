@@ -2,38 +2,46 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfPressure
+from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfLength, UnitOfPressure
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    COMBUSTION_SENSOR_KEYS,
+    DRIVETRAIN_BEV,
     DRIVETRAIN_CONV,
+    ELECTRIC_ENUM_SENSOR_KEYS,
     ELECTRIC_SENSOR_KEYS,
+    KNOWN_ENUM_SENSORS,
     KNOWN_SENSORS,
 )
 from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
 
-# Keys for Battery calculation (subset of ELECTRIC_SENSOR_KEYS)
-_BATTERY_ELECTRIC_RANGE_KEY = "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange"
-_BATTERY_TARGET_RANGE_KEY = "vehicle.powertrain.electric.range.target"
+_LOGGER = logging.getLogger(__name__)
 
 # Map device class strings to actual classes
 DEVICE_CLASS_MAP = {
     "distance": SensorDeviceClass.DISTANCE,
     "pressure": SensorDeviceClass.PRESSURE,
+    "battery": SensorDeviceClass.BATTERY,
+    "energy": SensorDeviceClass.ENERGY,
 }
 
 # Map unit strings to HA unit constants
 UNIT_MAP = {
     "km": UnitOfLength.KILOMETERS,
     "kPa": UnitOfPressure.KPA,
+    "%": PERCENTAGE,
+    "kWh": UnitOfEnergy.KILO_WATT_HOUR,
 }
 
 
@@ -46,6 +54,7 @@ async def async_setup_entry(
     coordinator: BMWCarDataCoordinator = entry.runtime_data
     drive_train = coordinator.vehicle_info.get("drive_train")
     is_electric = drive_train != DRIVETRAIN_CONV
+    is_bev = drive_train == DRIVETRAIN_BEV
 
     # Create entities for all known sensors
     entities: list[BMWCarDataSensor] = []
@@ -53,6 +62,10 @@ async def async_setup_entry(
     for key, (name, unit, device_class, icon) in KNOWN_SENSORS.items():
         # Skip electric-only sensors for conventional vehicles
         if not is_electric and key in ELECTRIC_SENSOR_KEYS:
+            continue
+
+        # Skip combustion-only sensors for BEV vehicles
+        if is_bev and key in COMBUSTION_SENSOR_KEYS:
             continue
 
         entities.append(
@@ -68,9 +81,24 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
-    # Add calculated Battery sensor only for electric vehicles
-    if is_electric:
-        async_add_entities([BMWBatterySensor(coordinator)])
+    # Create enum sensors
+    enum_entities: list[BMWCarDataEnumSensor] = []
+
+    for key, (name, options, icon) in KNOWN_ENUM_SENSORS.items():
+        if not is_electric and key in ELECTRIC_ENUM_SENSOR_KEYS:
+            continue
+
+        enum_entities.append(
+            BMWCarDataEnumSensor(
+                coordinator=coordinator,
+                key=key,
+                name=name,
+                options=options,
+                icon=icon,
+            )
+        )
+
+    async_add_entities(enum_entities)
 
 
 class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
@@ -107,6 +135,10 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
         if "travelledDistance" in key:
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
+        # Energy delta is a total value, not a point-in-time measurement
+        if device_class == "energy":
+            self._attr_state_class = SensorStateClass.TOTAL
+
     def _restore_native_value(self, state: str) -> None:
         """Restore the native value from state string."""
         try:
@@ -137,64 +169,43 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
             return None
 
 
-class BMWBatterySensor(BMWCarDataEntity, SensorEntity):
-    """Calculated Battery sensor (Electric Range / Target Electric Range * 100)."""
+class BMWCarDataEnumSensor(BMWCarDataEntity, SensorEntity):
+    """Representation of a BMW CarData enum sensor."""
 
-    _attr_native_unit_of_measurement = PERCENTAGE
-    _attr_device_class = SensorDeviceClass.BATTERY
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 0
-    _attr_icon = "mdi:battery"
+    _attr_device_class = SensorDeviceClass.ENUM
 
-    def __init__(self, coordinator: BMWCarDataCoordinator) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator, key="calculated_battery", name="Battery")
-        # Per-key caches so a partial MQTT update (only one key present) can
-        # still produce a value using the last known reading for the other key.
-        self._last_electric_range: float | None = None
-        self._last_target_range: float | None = None
+    def __init__(
+        self,
+        coordinator: BMWCarDataCoordinator,
+        key: str,
+        name: str,
+        options: list[str],
+        icon: str | None,
+    ) -> None:
+        """Initialize the enum sensor."""
+        super().__init__(coordinator, key, name)
+        self._attr_options = options
+        if icon:
+            self._attr_icon = icon
 
     def _restore_native_value(self, state: str) -> None:
         """Restore the native value from state string."""
-        try:
-            self._last_value = float(state)
-        except (ValueError, TypeError):
-            self._last_value = None
-
-    def _process_coordinator_data(self) -> None:
-        """Compute battery percentage, falling back to cached source values if one key is absent."""
-        def _extract(key: str) -> float | None:
-            data = self.coordinator.data.get(key)
-            if data is None:
-                return None
-            value = data.get("value") if isinstance(data, dict) else data
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return None
-
-        electric_range = _extract(_BATTERY_ELECTRIC_RANGE_KEY)
-        target_range = _extract(_BATTERY_TARGET_RANGE_KEY)
-
-        # Update per-key caches whenever fresh data arrives
-        if electric_range is not None:
-            self._last_electric_range = electric_range
-        if target_range is not None:
-            self._last_target_range = target_range
-
-        # Use cached value for whichever source key is absent in this update
-        effective_electric = electric_range if electric_range is not None else self._last_electric_range
-        effective_target = target_range if target_range is not None else self._last_target_range
-
-        if effective_electric is None or effective_target is None or effective_target == 0:
-            return
-
-        self._last_value = (effective_electric / effective_target) * 100
-        self._has_received_data = True
+        self._last_value = state
 
     @property
-    def native_value(self) -> float | None:
-        """Return the calculated battery percentage."""
-        return self._last_value
+    def native_value(self) -> str | None:
+        """Return the sensor value as a lowercase string."""
+        value = self._last_value
+        if value is None:
+            return None
+        result = str(value).lower()
+        if result not in self._attr_options:
+            _LOGGER.warning(
+                "Unexpected value '%s' for %s — report to add it to const.py",
+                result,
+                self._key,
+            )
+            return None
+        return result
 
 
