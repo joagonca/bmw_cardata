@@ -9,7 +9,6 @@ import logging
 import secrets
 from typing import Any
 
-import aiohttp
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
@@ -87,19 +86,19 @@ async def _poll_for_token(
 ) -> dict[str, Any]:
     """Poll for access token after user authorizes."""
     max_attempts = expires_in // interval
-    timeout = aiohttp.ClientTimeout(total=30)
+    session = async_get_clientsession(hass)
 
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        for attempt in range(max_attempts):
-            await asyncio.sleep(interval)
+    for attempt in range(max_attempts):
+        await asyncio.sleep(interval)
 
-            data = {
-                "client_id": client_id,
-                "device_code": device_code,
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                "code_verifier": code_verifier,
-            }
+        data = {
+            "client_id": client_id,
+            "device_code": device_code,
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "code_verifier": code_verifier,
+        }
 
+        async with asyncio.timeout(30):
             async with session.post(
                 TOKEN_ENDPOINT,
                 data=data,
@@ -136,8 +135,8 @@ async def _get_vehicles(
     hass: HomeAssistant, access_token: str
 ) -> list[dict[str, Any]]:
     """Get list of mapped vehicles."""
-    timeout = aiohttp.ClientTimeout(total=30)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    session = async_get_clientsession(hass)
+    async with asyncio.timeout(30):
         async with session.get(
             f"{API_BASE_URL}/customers/vehicles/mappings",
             headers={
@@ -155,8 +154,8 @@ async def _get_basic_data(
     hass: HomeAssistant, access_token: str, vin: str
 ) -> dict[str, Any]:
     """Get basic vehicle data to validate VIN access."""
-    timeout = aiohttp.ClientTimeout(total=30)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    session = async_get_clientsession(hass)
+    async with asyncio.timeout(30):
         async with session.get(
             f"{API_BASE_URL}/customers/vehicles/{vin}/basicData",
             headers={

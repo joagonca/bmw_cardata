@@ -208,10 +208,11 @@ class BMWMqttManager:
         self._mqtt_lock = threading.Lock()
         self._start_lock = asyncio.Lock()
         self._reconnect_lock = asyncio.Lock()
-        # Map VIN -> callback function for message routing
+        # Map VIN -> callback function for message routing.
+        # Protected by _vin_lock (accessed from both HA loop and paho thread).
         self._vin_callbacks: dict[str, Callable[[dict[str, Any]], None]] = {}
-        # Track subscribed topics
         self._subscribed_vins: set[str] = set()
+        self._vin_lock = threading.Lock()
 
     @property
     def is_connected(self) -> bool:
@@ -222,27 +223,29 @@ class BMWMqttManager:
         self, vin: str, callback: Callable[[dict[str, Any]], None]
     ) -> None:
         """Register a VIN with its message callback."""
-        self._vin_callbacks[vin] = callback
+        with self._vin_lock:
+            self._vin_callbacks[vin] = callback
         
-        # If already connected, subscribe to this VIN's topic
-        if self._mqtt_connected and self._mqtt_client and vin not in self._subscribed_vins:
-            topic = MQTT_TOPIC_PATTERN.format(gcid=self._gcid, vin=vin)
-            self._mqtt_client.subscribe(topic, qos=1)
-            self._subscribed_vins.add(vin)
-            _LOGGER.info("[%s] Subscribed to topic for VIN %s", self._gcid[:8], vin[-6:])
+            # If already connected, subscribe to this VIN's topic
+            if self._mqtt_connected and self._mqtt_client and vin not in self._subscribed_vins:
+                topic = MQTT_TOPIC_PATTERN.format(gcid=self._gcid, vin=vin)
+                self._mqtt_client.subscribe(topic, qos=1)
+                self._subscribed_vins.add(vin)
+                _LOGGER.info("[%s] Subscribed to topic for VIN %s", self._gcid[:8], vin[-6:])
 
     def unregister_vin(self, vin: str) -> bool:
         """Unregister a VIN. Returns True if no more VINs registered."""
-        self._vin_callbacks.pop(vin, None)
+        with self._vin_lock:
+            self._vin_callbacks.pop(vin, None)
         
-        # Unsubscribe from topic if connected
-        if self._mqtt_connected and self._mqtt_client and vin in self._subscribed_vins:
-            topic = MQTT_TOPIC_PATTERN.format(gcid=self._gcid, vin=vin)
-            self._mqtt_client.unsubscribe(topic)
-            self._subscribed_vins.discard(vin)
-            _LOGGER.info("[%s] Unsubscribed from topic for VIN %s", self._gcid[:8], vin[-6:])
+            # Unsubscribe from topic if connected
+            if self._mqtt_connected and self._mqtt_client and vin in self._subscribed_vins:
+                topic = MQTT_TOPIC_PATTERN.format(gcid=self._gcid, vin=vin)
+                self._mqtt_client.unsubscribe(topic)
+                self._subscribed_vins.discard(vin)
+                _LOGGER.info("[%s] Unsubscribed from topic for VIN %s", self._gcid[:8], vin[-6:])
         
-        return len(self._vin_callbacks) == 0
+            return len(self._vin_callbacks) == 0
 
     async def async_start(self) -> None:
         """Start the MQTT connection."""
@@ -329,7 +332,8 @@ class BMWMqttManager:
             await self.hass.async_add_executor_job(_stop)
             self._mqtt_client = None
             self._mqtt_connected = False
-            self._subscribed_vins.clear()
+            with self._vin_lock:
+                self._subscribed_vins.clear()
 
     async def async_stop(self) -> None:
         """Stop the MQTT connection."""
@@ -350,18 +354,23 @@ class BMWMqttManager:
         
         if reason_code == mqtt.CONNACK_ACCEPTED or reason_code.value == 0:
             self._mqtt_connected = True
-            self._subscribed_vins.clear()
 
-            # Subscribe to all registered VINs
-            for vin in self._vin_callbacks:
+            # Snapshot VINs under lock, then subscribe outside lock
+            # (paho subscribe is thread-safe and should not be called under our lock)
+            with self._vin_lock:
+                self._subscribed_vins.clear()
+                vins_to_subscribe = list(self._vin_callbacks.keys())
+
+            for vin in vins_to_subscribe:
                 topic = MQTT_TOPIC_PATTERN.format(gcid=self._gcid, vin=vin)
                 client.subscribe(topic, qos=1)
-                self._subscribed_vins.add(vin)
+                with self._vin_lock:
+                    self._subscribed_vins.add(vin)
             
             _LOGGER.info(
                 "[%s] MQTT connected, subscribed to %d vehicle(s)",
                 self._gcid[:8],
-                len(self._vin_callbacks),
+                len(vins_to_subscribe),
             )
         else:
             _LOGGER.error(
@@ -387,7 +396,8 @@ class BMWMqttManager:
     ) -> None:
         """Handle MQTT disconnection."""
         self._mqtt_connected = False
-        self._subscribed_vins.clear()
+        with self._vin_lock:
+            self._subscribed_vins.clear()
         _LOGGER.warning("[%s] MQTT disconnected: %s", self._gcid[:8], reason_code)
 
         # Schedule reconnection
@@ -477,20 +487,22 @@ class BMWMqttManager:
                 if len(topic_parts) >= 2:
                     vin = topic_parts[1]
 
-            if vin and vin in self._vin_callbacks:
-                # Route to the appropriate coordinator's callback
-                callback = self._vin_callbacks[vin]
-                # Schedule callback on HA event loop
-                self.hass.loop.call_soon_threadsafe(
-                    self.hass.async_create_task,
-                    self._async_invoke_callback(callback, payload_data),
-                )
-            else:
-                _LOGGER.debug(
-                    "[%s] Received message for unknown VIN: %s",
-                    self._gcid[:8],
-                    vin[-6:] if vin else "none",
-                )
+            if vin:
+                # Snapshot callback under lock (called from paho thread)
+                with self._vin_lock:
+                    callback = self._vin_callbacks.get(vin)
+                if callback is not None:
+                    # Schedule callback on HA event loop
+                    self.hass.loop.call_soon_threadsafe(
+                        self.hass.async_create_task,
+                        self._async_invoke_callback(callback, payload_data),
+                    )
+                else:
+                    _LOGGER.debug(
+                        "[%s] Received message for unknown VIN: %s",
+                        self._gcid[:8],
+                        vin[-6:],
+                    )
 
         except (json.JSONDecodeError, UnicodeDecodeError) as err:
             _LOGGER.warning("[%s] Failed to parse MQTT message: %s", self._gcid[:8], err)
