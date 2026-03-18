@@ -79,7 +79,7 @@ async def async_setup_entry(
     # Create enum sensors
     enum_entities: list[BMWCarDataEnumSensor] = []
 
-    for key, (name, options, icon) in KNOWN_ENUM_SENSORS.items():
+    for key, (name, options, icon, translation_key) in KNOWN_ENUM_SENSORS.items():
         if not coordinator.is_electric and key in ELECTRIC_ENUM_SENSOR_KEYS:
             continue
 
@@ -90,6 +90,7 @@ async def async_setup_entry(
                 name=name,
                 options=options,
                 icon=icon,
+                translation_key=translation_key,
             )
         )
 
@@ -176,10 +177,12 @@ class BMWCarDataEnumSensor(BMWCarDataEntity, SensorEntity):
         name: str,
         options: list[str],
         icon: str | None,
+        translation_key: str,
     ) -> None:
         """Initialize the enum sensor."""
         super().__init__(coordinator, key, name)
         self._attr_options = options
+        self._attr_translation_key = translation_key
         if icon:
             self._attr_icon = icon
 

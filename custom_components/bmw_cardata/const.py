@@ -188,8 +188,8 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
 }
 
 # Known enum sensor keys with metadata
-# Format: key -> (name, options, icon)
-KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None]]] = {
+# Format: key -> (name, options, icon, translation_key)
+KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str]]] = {
     "vehicle.drivetrain.electricEngine.charging.status": (
         "Charging Status",
         [
@@ -201,26 +201,31 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None]]] = {
             "chargingerror",
         ],
         "mdi:ev-station",
+        "charging_status",
     ),
     "vehicle.cabin.window.row1.driver.status": (
         "Driver Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
+        "window_status",
     ),
     "vehicle.cabin.window.row1.passenger.status": (
         "Front Passenger Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
+        "window_status",
     ),
     "vehicle.cabin.window.row2.driver.status": (
         "Rear Left Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
+        "window_status",
     ),
     "vehicle.cabin.window.row2.passenger.status": (
         "Rear Right Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
+        "window_status",
     ),
 }
 

@@ -48,6 +48,27 @@
       "no_vehicles": "No PRIMARY vehicles found in your account."
     }
   },
+  "entity": {
+    "sensor": {
+      "charging_status": {
+        "state": {
+          "nocharging": "Not charging",
+          "initialization": "Initializing",
+          "chargingactive": "Charging",
+          "chargingpaused": "Paused",
+          "chargingended": "Complete",
+          "chargingerror": "Error"
+        }
+      },
+      "window_status": {
+        "state": {
+          "open": "Open",
+          "intermediate": "Partially open",
+          "closed": "Closed"
+        }
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
