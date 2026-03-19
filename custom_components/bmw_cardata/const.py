@@ -229,6 +229,15 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str]]] = {
     ),
 }
 
+CHARGING_STATUS_ICONS: Final[dict[str, str]] = {
+    "nocharging": "mdi:power-plug-off",
+    "initialization": "mdi:battery-clock",
+    "chargingactive": "mdi:battery-charging",
+    "chargingpaused": "mdi:battery-minus",
+    "chargingended": "mdi:battery-check",
+    "chargingerror": "mdi:battery-alert",
+}
+
 # Enum sensor keys that require electric drivetrain (PHEV or BEV)
 ELECTRIC_ENUM_SENSOR_KEYS: Final[set[str]] = {
     "vehicle.drivetrain.electricEngine.charging.status",

@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CHARGING_STATUS_ICONS,
     COMBUSTION_SENSOR_KEYS,
     ELECTRIC_ENUM_SENSOR_KEYS,
     ELECTRIC_SENSOR_KEYS,
@@ -79,6 +80,11 @@ async def async_setup_entry(
     # Create enum sensors
     enum_entities: list[BMWCarDataEnumSensor] = []
 
+    # State-dependent icon mappings for enum sensors
+    state_icon_map: dict[str, dict[str, str]] = {
+        "vehicle.drivetrain.electricEngine.charging.status": CHARGING_STATUS_ICONS,
+    }
+
     for key, (name, options, icon, translation_key) in KNOWN_ENUM_SENSORS.items():
         if not coordinator.is_electric and key in ELECTRIC_ENUM_SENSOR_KEYS:
             continue
@@ -91,6 +97,7 @@ async def async_setup_entry(
                 options=options,
                 icon=icon,
                 translation_key=translation_key,
+                state_icons=state_icon_map.get(key),
             )
         )
 
@@ -178,13 +185,23 @@ class BMWCarDataEnumSensor(BMWCarDataEntity, SensorEntity):
         options: list[str],
         icon: str | None,
         translation_key: str,
+        state_icons: dict[str, str] | None = None,
     ) -> None:
         """Initialize the enum sensor."""
         super().__init__(coordinator, key, name)
         self._attr_options = options
         self._attr_translation_key = translation_key
-        if icon:
+        self._state_icons = state_icons
+        self._default_icon = icon
+        if icon and not state_icons:
             self._attr_icon = icon
+
+    @property
+    def icon(self) -> str | None:
+        """Return a dynamic icon based on the current state."""
+        if self._state_icons and self.native_value:
+            return self._state_icons.get(self.native_value, self._default_icon)
+        return self._default_icon
 
     def _restore_native_value(self, state: str) -> None:
         """Restore the native value from state string."""
