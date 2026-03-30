@@ -251,23 +251,25 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_auth(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Handle the auth step - show URL and code, poll when user confirms."""
-        if self._device_code_response is None:
-            return await self.async_step_user()
+    async def _async_show_auth_and_poll(
+        self,
+        step_id: str,
+        user_input: dict[str, Any] | None,
+    ) -> ConfigFlowResult | dict[str, Any]:
+        """Show auth URL/code form, poll for token on submit.
 
+        Returns parsed tokens dict on success, or a ConfigFlowResult
+        (form / abort / error) that the caller should return directly.
+        """
         errors: dict[str, str] = {}
-        
+
         verification_url = (
-            self._device_code_response.get("verification_uri_complete") 
+            self._device_code_response.get("verification_uri_complete")
             or self._device_code_response.get("verification_uri")
         )
         user_code = self._device_code_response.get("user_code", "")
 
         if user_input is not None:
-            # User clicked confirm, start polling for token
             try:
                 token_data = await _poll_for_token(
                     self.hass,
@@ -277,8 +279,7 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._device_code_response.get("interval", 5),
                     self._device_code_response.get("expires_in", 600),
                 )
-                self._tokens = parse_token_response(token_data)
-                return await self.async_step_select_vin()
+                return parse_token_response(token_data)
             except AuthTimeoutError:
                 return self.async_abort(reason="auth_timeout")
             except AuthDeniedError:
@@ -287,9 +288,8 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.error("Auth polling failed: %s", err)
                 errors["base"] = "auth_failed"
 
-        # Show form with URL and code
         return self.async_show_form(
-            step_id="auth",
+            step_id=step_id,
             data_schema=vol.Schema({}),
             description_placeholders={
                 "url": verification_url,
@@ -297,6 +297,19 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
             },
             errors=errors,
         )
+
+    async def async_step_auth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the auth step - show URL and code, poll when user confirms."""
+        if self._device_code_response is None:
+            return await self.async_step_user()
+
+        result = await self._async_show_auth_and_poll("auth", user_input)
+        if isinstance(result, dict):
+            self._tokens = result
+            return await self.async_step_select_vin()
+        return result
 
     async def async_step_select_vin(
         self, user_input: dict[str, Any] | None = None
@@ -417,48 +430,15 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._device_code_response is None:
             return self.async_abort(reason="api_error")
 
-        errors: dict[str, str] = {}
-
-        verification_url = (
-            self._device_code_response.get("verification_uri_complete")
-            or self._device_code_response.get("verification_uri")
-        )
-        user_code = self._device_code_response.get("user_code", "")
-
-        if user_input is not None:
-            try:
-                token_data = await _poll_for_token(
-                    self.hass,
-                    self._client_id,
-                    self._device_code_response["device_code"],
-                    self._code_verifier,
-                    self._device_code_response.get("interval", 5),
-                    self._device_code_response.get("expires_in", 600),
-                )
-                new_tokens = parse_token_response(token_data)
-                entry = self._get_reauth_entry()
-                return self.async_update_reload_and_abort(
-                    entry,
-                    data={**entry.data, CONF_TOKENS: new_tokens},
-                    reason="reauth_successful",
-                )
-            except AuthTimeoutError:
-                return self.async_abort(reason="auth_timeout")
-            except AuthDeniedError:
-                return self.async_abort(reason="auth_denied")
-            except Exception as err:
-                _LOGGER.error("Re-auth polling failed: %s", err)
-                errors["base"] = "auth_failed"
-
-        return self.async_show_form(
-            step_id="reauth_auth",
-            data_schema=vol.Schema({}),
-            description_placeholders={
-                "url": verification_url,
-                "user_code": user_code,
-            },
-            errors=errors,
-        )
+        result = await self._async_show_auth_and_poll("reauth_auth", user_input)
+        if isinstance(result, dict):
+            entry = self._get_reauth_entry()
+            return self.async_update_reload_and_abort(
+                entry,
+                data={**entry.data, CONF_TOKENS: result},
+                reason="reauth_successful",
+            )
+        return result
 
 
 class BMWCarDataOptionsFlowHandler(OptionsFlow):
