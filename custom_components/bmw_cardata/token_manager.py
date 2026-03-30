@@ -22,6 +22,7 @@ from .const import (
     TOKEN_REFRESH,
     TOKEN_REFRESH_BUFFER,
     TOKEN_REFRESH_EXPIRES_AT,
+    TOKEN_UPDATED_AT,
 )
 from .utils import format_token_expiry, parse_token_response
 
@@ -51,11 +52,14 @@ class BMWTokenManager:
         """Register a config entry with this token manager."""
         self._config_entries.add(entry.entry_id)
         entry_tokens = entry.data.get(CONF_TOKENS, {})
-        
-        # Use tokens with the latest expiry time (most recently refreshed)
+
+        # Use tokens that were obtained/refreshed most recently.
+        # TOKEN_UPDATED_AT tracks when the token set was last obtained (auth or
+        # refresh), unlike TOKEN_EXPIRES_AT which only reflects the access token
+        # lifetime and can be higher for older tokens that were recently refreshed.
         if not self._tokens:
             self._tokens = dict(entry_tokens)
-        elif entry_tokens.get(TOKEN_EXPIRES_AT, 0) > self._tokens.get(TOKEN_EXPIRES_AT, 0):
+        elif entry_tokens.get(TOKEN_UPDATED_AT, 0) > self._tokens.get(TOKEN_UPDATED_AT, 0):
             self._tokens = dict(entry_tokens)
             _LOGGER.debug(
                 "[%s] Using fresher tokens from entry %s",

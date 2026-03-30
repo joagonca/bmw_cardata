@@ -45,6 +45,7 @@ class BMWMqttManager:
         self._mqtt_connected = False
         self._mqtt_connecting = False  # Track if connection attempt is in progress
         self._stopped = False  # Set on async_stop(); causes reconnect loop to exit cleanly
+        self._intentional_disconnect = False  # Suppress reconnect from intentional teardown
         self._mqtt_lock = threading.Lock()
         self._start_lock = asyncio.Lock()
         self._reconnect_lock = asyncio.Lock()
@@ -161,6 +162,10 @@ class BMWMqttManager:
     async def _async_stop_client(self) -> None:
         """Stop the MQTT client without affecting connecting state."""
         if self._mqtt_client:
+            # Suppress _on_mqtt_disconnect from scheduling a reconnect —
+            # this is an intentional teardown, not an unexpected broker drop.
+            self._intentional_disconnect = True
+
             def _stop():
                 with self._mqtt_lock:
                     if self._mqtt_client:
@@ -172,6 +177,7 @@ class BMWMqttManager:
             await self.hass.async_add_executor_job(_stop)
             self._mqtt_client = None
             self._mqtt_connected = False
+            self._intentional_disconnect = False
             with self._vin_lock:
                 self._subscribed_vins.clear()
 
@@ -219,12 +225,13 @@ class BMWMqttManager:
                 reason_code,
             )
             self._mqtt_connected = False
-            
+
             # Schedule reconnection attempt on auth failure
-            self.hass.loop.call_soon_threadsafe(
-                self.hass.async_create_task,
-                self._async_handle_reconnect(),
-            )
+            if not self._stopped and not self._intentional_disconnect:
+                self.hass.loop.call_soon_threadsafe(
+                    self.hass.async_create_task,
+                    self._async_handle_reconnect(),
+                )
 
     def _on_mqtt_disconnect(
         self,
@@ -238,6 +245,11 @@ class BMWMqttManager:
         self._mqtt_connected = False
         with self._vin_lock:
             self._subscribed_vins.clear()
+
+        if self._stopped or self._intentional_disconnect:
+            _LOGGER.debug("[%s] MQTT disconnected (intentional): %s", self._gcid[:8], reason_code)
+            return
+
         _LOGGER.warning("[%s] MQTT disconnected: %s", self._gcid[:8], reason_code)
 
         # Schedule reconnection
@@ -255,13 +267,19 @@ class BMWMqttManager:
         tokens, and a retry loop with increasing delays handles transient failures.
         """
         async with self._reconnect_lock:
+            # Another reconnect task (or the new coordinator after reauth) may
+            # have already restored the connection while we waited on the lock.
+            if self._mqtt_connected or self._stopped:
+                return
+
             delays = [5, 15, 30, 60, 120]
             for attempt, delay in enumerate(delays):
                 await asyncio.sleep(delay)
 
-                # Manager was stopped (entry unloaded/reloaded during our sleep).
-                # Exit without triggering re-auth — the new manager handles things.
-                if self._stopped:
+                # Manager was stopped (entry unloaded/reloaded during our sleep)
+                # or another path restored the connection.  Exit without
+                # triggering re-auth — the new manager handles things.
+                if self._stopped or self._mqtt_connected:
                     return
 
                 _LOGGER.info(

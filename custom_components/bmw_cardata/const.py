@@ -22,6 +22,7 @@ TOKEN_ID: Final = "id_token"
 TOKEN_GCID: Final = "gcid"
 TOKEN_EXPIRES_AT: Final = "expires_at"
 TOKEN_REFRESH_EXPIRES_AT: Final = "refresh_expires_at"
+TOKEN_UPDATED_AT: Final = "updated_at"
 
 # BMW API endpoints
 API_BASE_URL: Final = "https://api-cardata.bmwgroup.com"

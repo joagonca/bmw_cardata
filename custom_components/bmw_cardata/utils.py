@@ -18,6 +18,7 @@ from .const import (
     TOKEN_ID,
     TOKEN_REFRESH,
     TOKEN_REFRESH_EXPIRES_AT,
+    TOKEN_UPDATED_AT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ def parse_token_response(
         TOKEN_REFRESH_EXPIRES_AT: existing.get(
             TOKEN_REFRESH_EXPIRES_AT, int(time.time()) + refresh_expires_in
         ),
+        TOKEN_UPDATED_AT: int(time.time()),
     }
 
 
