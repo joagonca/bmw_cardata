@@ -370,10 +370,8 @@ class BMWMqttManager:
     async def _async_invoke_callback(
         self, callback: Callable[[dict[str, Any]], None], payload: dict[str, Any]
     ) -> None:
-        """Invoke callback (possibly async) with payload."""
-        result = callback(payload)
-        if asyncio.iscoroutine(result):
-            await result
+        """Invoke callback with payload."""
+        callback(payload)
 
 
 def get_mqtt_manager(
