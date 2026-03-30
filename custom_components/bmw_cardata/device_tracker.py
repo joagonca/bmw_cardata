@@ -55,6 +55,7 @@ class BMWCarDataDeviceTracker(BMWCarDataEntity, TrackerEntity):
         self._last_latitude: float | None = None
         self._last_longitude: float | None = None
         self._last_altitude: float | None = None
+        self._last_timestamp: str | None = None
 
     async def async_added_to_hass(self) -> None:
         """Restore state when entity is added to hass."""
@@ -64,12 +65,9 @@ class BMWCarDataDeviceTracker(BMWCarDataEntity, TrackerEntity):
         if (last_state := await self.async_get_last_state()) is not None:
             # Restore coordinates from attributes
             if last_state.attributes:
-                if "latitude" in last_state.attributes:
-                    self._last_latitude = last_state.attributes.get("latitude")
-                if "longitude" in last_state.attributes:
-                    self._last_longitude = last_state.attributes.get("longitude")
-                if "altitude" in last_state.attributes:
-                    self._last_altitude = last_state.attributes.get("altitude")
+                self._last_latitude = last_state.attributes.get("latitude")
+                self._last_longitude = last_state.attributes.get("longitude")
+                self._last_altitude = last_state.attributes.get("altitude")
                 self._last_timestamp = last_state.attributes.get("last_changed")
 
                 if self._last_latitude is not None and self._last_longitude is not None:

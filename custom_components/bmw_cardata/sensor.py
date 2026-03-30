@@ -36,23 +36,23 @@ async def async_setup_entry(
     # Create entities for all known sensors
     entities: list[BMWCarDataSensor] = []
 
-    for key, (name, unit, device_class, icon, drivetrain) in KNOWN_SENSORS.items():
+    for key, sensor_def in KNOWN_SENSORS.items():
         # Skip electric-only sensors for conventional vehicles
-        if not coordinator.is_electric and drivetrain == DRIVETRAIN_ELECTRIC:
+        if not coordinator.is_electric and sensor_def.drivetrain == DRIVETRAIN_ELECTRIC:
             continue
 
         # Skip combustion-only sensors for BEV vehicles
-        if coordinator.is_bev and drivetrain == DRIVETRAIN_COMBUSTION:
+        if coordinator.is_bev and sensor_def.drivetrain == DRIVETRAIN_COMBUSTION:
             continue
 
         entities.append(
             BMWCarDataSensor(
                 coordinator=coordinator,
                 key=key,
-                name=name,
-                unit=unit,
-                device_class=device_class,
-                icon=icon,
+                name=sensor_def.name,
+                unit=sensor_def.unit,
+                device_class=sensor_def.device_class,
+                icon=sensor_def.icon,
             )
         )
 
@@ -61,19 +61,19 @@ async def async_setup_entry(
     # Create enum sensors
     enum_entities: list[BMWCarDataEnumSensor] = []
 
-    for key, (name, options, icon, translation_key, drivetrain, state_icons) in KNOWN_ENUM_SENSORS.items():
-        if not coordinator.is_electric and drivetrain == DRIVETRAIN_ELECTRIC:
+    for key, enum_def in KNOWN_ENUM_SENSORS.items():
+        if not coordinator.is_electric and enum_def.drivetrain == DRIVETRAIN_ELECTRIC:
             continue
 
         enum_entities.append(
             BMWCarDataEnumSensor(
                 coordinator=coordinator,
                 key=key,
-                name=name,
-                options=options,
-                icon=icon,
-                translation_key=translation_key,
-                state_icons=state_icons,
+                name=enum_def.name,
+                options=enum_def.options,
+                icon=enum_def.icon,
+                translation_key=enum_def.translation_key,
+                state_icons=enum_def.state_icons,
             )
         )
 

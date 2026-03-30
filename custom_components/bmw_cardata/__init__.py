@@ -46,6 +46,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: BMWCarDataConfigEntry) -
 
     # Set up the coordinator
     if not await coordinator.async_setup():
+        # Clean up resources on failure
+        if token_manager.unregister_entry(entry.entry_id):
+            remove_token_manager(hass, client_id)
+            await remove_mqtt_manager(hass, gcid)
         return False
 
     # Store coordinator in runtime data

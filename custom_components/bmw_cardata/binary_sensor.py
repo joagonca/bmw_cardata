@@ -42,18 +42,18 @@ async def async_setup_entry(
     # Create entities for all known binary sensors
     entities: list[BMWCarDataBinarySensor] = []
 
-    for key, (name, device_class, icon, drivetrain) in KNOWN_BINARY_SENSORS.items():
+    for key, bs_def in KNOWN_BINARY_SENSORS.items():
         # Skip electric-only sensors for conventional vehicles
-        if not coordinator.is_electric and drivetrain == DRIVETRAIN_ELECTRIC:
+        if not coordinator.is_electric and bs_def.drivetrain == DRIVETRAIN_ELECTRIC:
             continue
 
         entities.append(
             BMWCarDataBinarySensor(
                 coordinator=coordinator,
                 key=key,
-                name=name,
-                device_class=device_class,
-                icon=icon,
+                name=bs_def.name,
+                device_class=bs_def.device_class,
+                icon=bs_def.icon,
             )
         )
 

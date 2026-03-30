@@ -2,11 +2,41 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, NamedTuple
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfLength, UnitOfPressure
+
+
+class SensorDef(NamedTuple):
+    """Definition for a numeric sensor entity."""
+
+    name: str
+    unit: str | None
+    device_class: SensorDeviceClass | None
+    icon: str | None
+    drivetrain: str | None
+
+
+class BinarySensorDef(NamedTuple):
+    """Definition for a binary sensor entity."""
+
+    name: str
+    device_class: BinarySensorDeviceClass | None
+    icon: str | None
+    drivetrain: str | None
+
+
+class EnumSensorDef(NamedTuple):
+    """Definition for an enum sensor entity."""
+
+    name: str
+    options: list[str]
+    icon: str | None
+    translation_key: str
+    drivetrain: str | None
+    state_icons: dict[str, str] | None
 
 # Integration domain
 DOMAIN: Final = "bmw_cardata"
@@ -70,146 +100,142 @@ DRIVETRAIN_ELECTRIC: Final = "electric"
 DRIVETRAIN_COMBUSTION: Final = "combustion"
 
 # Known sensor keys with metadata
-# Format: key -> (name, unit, device_class, icon, drivetrain)
-KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, SensorDeviceClass | None, str | None, str | None]]] = {
-    "vehicle.vehicle.travelledDistance": (
-        "Odometer",
-        UnitOfLength.KILOMETERS,
-        SensorDeviceClass.DISTANCE,
-        "mdi:counter",
-        None,
+KNOWN_SENSORS: Final[dict[str, SensorDef]] = {
+    "vehicle.vehicle.travelledDistance": SensorDef(
+        name="Odometer",
+        unit=UnitOfLength.KILOMETERS,
+        device_class=SensorDeviceClass.DISTANCE,
+        icon="mdi:counter",
+        drivetrain=None,
     ),
-    "vehicle.drivetrain.lastRemainingRange": (
-        "Total Range",
-        UnitOfLength.KILOMETERS,
-        SensorDeviceClass.DISTANCE,
-        "mdi:gas-station",
-        None,
+    "vehicle.drivetrain.lastRemainingRange": SensorDef(
+        name="Total Range",
+        unit=UnitOfLength.KILOMETERS,
+        device_class=SensorDeviceClass.DISTANCE,
+        icon="mdi:gas-station",
+        drivetrain=None,
     ),
-    "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange": (
-        "Electric Range",
-        UnitOfLength.KILOMETERS,
-        SensorDeviceClass.DISTANCE,
-        "mdi:battery-charging",
-        DRIVETRAIN_ELECTRIC,
+    "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange": SensorDef(
+        name="Electric Range",
+        unit=UnitOfLength.KILOMETERS,
+        device_class=SensorDeviceClass.DISTANCE,
+        icon="mdi:battery-charging",
+        drivetrain=DRIVETRAIN_ELECTRIC,
     ),
-    "vehicle.chassis.axle.row1.wheel.left.tire.pressure": (
-        "Front Left Tire Pressure",
-        UnitOfPressure.KPA,
-        SensorDeviceClass.PRESSURE,
-        "mdi:car-tire-alert",
-        None,
+    "vehicle.chassis.axle.row1.wheel.left.tire.pressure": SensorDef(
+        name="Front Left Tire Pressure",
+        unit=UnitOfPressure.KPA,
+        device_class=SensorDeviceClass.PRESSURE,
+        icon="mdi:car-tire-alert",
+        drivetrain=None,
     ),
-    "vehicle.chassis.axle.row1.wheel.right.tire.pressure": (
-        "Front Right Tire Pressure",
-        UnitOfPressure.KPA,
-        SensorDeviceClass.PRESSURE,
-        "mdi:car-tire-alert",
-        None,
+    "vehicle.chassis.axle.row1.wheel.right.tire.pressure": SensorDef(
+        name="Front Right Tire Pressure",
+        unit=UnitOfPressure.KPA,
+        device_class=SensorDeviceClass.PRESSURE,
+        icon="mdi:car-tire-alert",
+        drivetrain=None,
     ),
-    "vehicle.chassis.axle.row2.wheel.left.tire.pressure": (
-        "Rear Left Tire Pressure",
-        UnitOfPressure.KPA,
-        SensorDeviceClass.PRESSURE,
-        "mdi:car-tire-alert",
-        None,
+    "vehicle.chassis.axle.row2.wheel.left.tire.pressure": SensorDef(
+        name="Rear Left Tire Pressure",
+        unit=UnitOfPressure.KPA,
+        device_class=SensorDeviceClass.PRESSURE,
+        icon="mdi:car-tire-alert",
+        drivetrain=None,
     ),
-    "vehicle.chassis.axle.row2.wheel.right.tire.pressure": (
-        "Rear Right Tire Pressure",
-        UnitOfPressure.KPA,
-        SensorDeviceClass.PRESSURE,
-        "mdi:car-tire-alert",
-        None,
+    "vehicle.chassis.axle.row2.wheel.right.tire.pressure": SensorDef(
+        name="Rear Right Tire Pressure",
+        unit=UnitOfPressure.KPA,
+        device_class=SensorDeviceClass.PRESSURE,
+        icon="mdi:car-tire-alert",
+        drivetrain=None,
     ),
-    "vehicle.drivetrain.batteryManagement.header": (
-        "Battery",
-        PERCENTAGE,
-        SensorDeviceClass.BATTERY,
-        "mdi:battery",
-        DRIVETRAIN_ELECTRIC,
+    "vehicle.drivetrain.batteryManagement.header": SensorDef(
+        name="Battery",
+        unit=PERCENTAGE,
+        device_class=SensorDeviceClass.BATTERY,
+        icon="mdi:battery",
+        drivetrain=DRIVETRAIN_ELECTRIC,
     ),
-    "vehicle.drivetrain.fuelSystem.level": (
-        "Fuel Level",
-        PERCENTAGE,
-        None,
-        "mdi:gas-station",
-        DRIVETRAIN_COMBUSTION,
+    "vehicle.drivetrain.fuelSystem.level": SensorDef(
+        name="Fuel Level",
+        unit=PERCENTAGE,
+        device_class=None,
+        icon="mdi:gas-station",
+        drivetrain=DRIVETRAIN_COMBUSTION,
     ),
-    "vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged": (
-        "Energy to Full Charge",
-        UnitOfEnergy.KILO_WATT_HOUR,
-        SensorDeviceClass.ENERGY,
-        "mdi:battery-charging",
-        DRIVETRAIN_ELECTRIC,
+    "vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged": SensorDef(
+        name="Energy to Full Charge",
+        unit=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        icon="mdi:battery-charging",
+        drivetrain=DRIVETRAIN_ELECTRIC,
     ),
 }
 
 # Known binary sensor keys with metadata
-# Format: key -> (name, device_class, icon, drivetrain)
-KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, BinarySensorDeviceClass | None, str | None, str | None]]] = {
-    "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive": (
-        "Charging Climatization",
-        None,
-        "mdi:air-conditioner",
-        DRIVETRAIN_ELECTRIC,
+KNOWN_BINARY_SENSORS: Final[dict[str, BinarySensorDef]] = {
+    "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive": BinarySensorDef(
+        name="Charging Climatization",
+        device_class=None,
+        icon="mdi:air-conditioner",
+        drivetrain=DRIVETRAIN_ELECTRIC,
     ),
-    "vehicle.body.trunk.isOpen": (
-        "Trunk",
-        BinarySensorDeviceClass.OPENING,
-        "mdi:car-back",
-        None,
+    "vehicle.body.trunk.isOpen": BinarySensorDef(
+        name="Trunk",
+        device_class=BinarySensorDeviceClass.OPENING,
+        icon="mdi:car-back",
+        drivetrain=None,
     ),
-    "vehicle.body.trunk.door.isOpen": (
-        "Trunk Door",
-        BinarySensorDeviceClass.OPENING,
-        "mdi:car-back",
-        None,
+    "vehicle.body.trunk.door.isOpen": BinarySensorDef(
+        name="Trunk Door",
+        device_class=BinarySensorDeviceClass.OPENING,
+        icon="mdi:car-back",
+        drivetrain=None,
     ),
-    "vehicle.body.hood.isOpen": (
-        "Hood",
-        BinarySensorDeviceClass.OPENING,
-        "mdi:car",
-        None,
+    "vehicle.body.hood.isOpen": BinarySensorDef(
+        name="Hood",
+        device_class=BinarySensorDeviceClass.OPENING,
+        icon="mdi:car",
+        drivetrain=None,
     ),
-
-    "vehicle.cabin.door.row1.driver.isOpen": (
-        "Driver Door",
-        BinarySensorDeviceClass.DOOR,
-        "mdi:car-door",
-        None,
+    "vehicle.cabin.door.row1.driver.isOpen": BinarySensorDef(
+        name="Driver Door",
+        device_class=BinarySensorDeviceClass.DOOR,
+        icon="mdi:car-door",
+        drivetrain=None,
     ),
-    "vehicle.cabin.door.row1.passenger.isOpen": (
-        "Front Passenger Door",
-        BinarySensorDeviceClass.DOOR,
-        "mdi:car-door",
-        None,
+    "vehicle.cabin.door.row1.passenger.isOpen": BinarySensorDef(
+        name="Front Passenger Door",
+        device_class=BinarySensorDeviceClass.DOOR,
+        icon="mdi:car-door",
+        drivetrain=None,
     ),
-    "vehicle.cabin.door.row2.driver.isOpen": (
-        "Rear Left Door",
-        BinarySensorDeviceClass.DOOR,
-        "mdi:car-door",
-        None,
+    "vehicle.cabin.door.row2.driver.isOpen": BinarySensorDef(
+        name="Rear Left Door",
+        device_class=BinarySensorDeviceClass.DOOR,
+        icon="mdi:car-door",
+        drivetrain=None,
     ),
-    "vehicle.cabin.door.row2.passenger.isOpen": (
-        "Rear Right Door",
-        BinarySensorDeviceClass.DOOR,
-        "mdi:car-door",
-        None,
+    "vehicle.cabin.door.row2.passenger.isOpen": BinarySensorDef(
+        name="Rear Right Door",
+        device_class=BinarySensorDeviceClass.DOOR,
+        icon="mdi:car-door",
+        drivetrain=None,
     ),
-    "vehicle.body.chargingPort.status": (
-        "Charging Port",
-        BinarySensorDeviceClass.PLUG,
-        "mdi:ev-plug-type2",
-        DRIVETRAIN_ELECTRIC,
+    "vehicle.body.chargingPort.status": BinarySensorDef(
+        name="Charging Port",
+        device_class=BinarySensorDeviceClass.PLUG,
+        icon="mdi:ev-plug-type2",
+        drivetrain=DRIVETRAIN_ELECTRIC,
     ),
 }
 
 # Known enum sensor keys with metadata
-# Format: key -> (name, options, icon, translation_key, drivetrain, state_icons)
-KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str | None, dict[str, str] | None]]] = {
-    "vehicle.drivetrain.electricEngine.charging.status": (
-        "Charging Status",
-        [
+KNOWN_ENUM_SENSORS: Final[dict[str, EnumSensorDef]] = {
+    "vehicle.drivetrain.electricEngine.charging.status": EnumSensorDef(
+        name="Charging Status",
+        options=[
             "nocharging",
             "initialization",
             "chargingactive",
@@ -217,10 +243,10 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str |
             "chargingended",
             "chargingerror",
         ],
-        "mdi:ev-station",
-        "charging_status",
-        DRIVETRAIN_ELECTRIC,
-        {
+        icon="mdi:ev-station",
+        translation_key="charging_status",
+        drivetrain=DRIVETRAIN_ELECTRIC,
+        state_icons={
             "nocharging": "mdi:power-plug-off",
             "initialization": "mdi:battery-clock",
             "chargingactive": "mdi:battery-charging",
@@ -229,37 +255,37 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str |
             "chargingerror": "mdi:battery-alert",
         },
     ),
-    "vehicle.cabin.window.row1.driver.status": (
-        "Driver Window",
-        ["open", "intermediate", "closed"],
-        "mdi:car-windshield",
-        "window_status",
-        None,
-        None,
+    "vehicle.cabin.window.row1.driver.status": EnumSensorDef(
+        name="Driver Window",
+        options=["open", "intermediate", "closed"],
+        icon="mdi:car-windshield",
+        translation_key="window_status",
+        drivetrain=None,
+        state_icons=None,
     ),
-    "vehicle.cabin.window.row1.passenger.status": (
-        "Front Passenger Window",
-        ["open", "intermediate", "closed"],
-        "mdi:car-windshield",
-        "window_status",
-        None,
-        None,
+    "vehicle.cabin.window.row1.passenger.status": EnumSensorDef(
+        name="Front Passenger Window",
+        options=["open", "intermediate", "closed"],
+        icon="mdi:car-windshield",
+        translation_key="window_status",
+        drivetrain=None,
+        state_icons=None,
     ),
-    "vehicle.cabin.window.row2.driver.status": (
-        "Rear Left Window",
-        ["open", "intermediate", "closed"],
-        "mdi:car-windshield",
-        "window_status",
-        None,
-        None,
+    "vehicle.cabin.window.row2.driver.status": EnumSensorDef(
+        name="Rear Left Window",
+        options=["open", "intermediate", "closed"],
+        icon="mdi:car-windshield",
+        translation_key="window_status",
+        drivetrain=None,
+        state_icons=None,
     ),
-    "vehicle.cabin.window.row2.passenger.status": (
-        "Rear Right Window",
-        ["open", "intermediate", "closed"],
-        "mdi:car-windshield",
-        "window_status",
-        None,
-        None,
+    "vehicle.cabin.window.row2.passenger.status": EnumSensorDef(
+        name="Rear Right Window",
+        options=["open", "intermediate", "closed"],
+        icon="mdi:car-windshield",
+        translation_key="window_status",
+        drivetrain=None,
+        state_icons=None,
     ),
 }
 
