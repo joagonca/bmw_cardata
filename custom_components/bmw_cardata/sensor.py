@@ -10,12 +10,10 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfLength, UnitOfPressure
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CHARGING_STATUS_ICONS,
     DRIVETRAIN_COMBUSTION,
     DRIVETRAIN_ELECTRIC,
     KNOWN_ENUM_SENSORS,
@@ -25,22 +23,6 @@ from .coordinator import BMWCarDataCoordinator
 from .entity import BMWCarDataEntity
 
 _LOGGER = logging.getLogger(__name__)
-
-# Map device class strings to actual classes
-DEVICE_CLASS_MAP = {
-    "distance": SensorDeviceClass.DISTANCE,
-    "pressure": SensorDeviceClass.PRESSURE,
-    "battery": SensorDeviceClass.BATTERY,
-    "energy": SensorDeviceClass.ENERGY,
-}
-
-# Map unit strings to HA unit constants
-UNIT_MAP = {
-    "km": UnitOfLength.KILOMETERS,
-    "kPa": UnitOfPressure.KPA,
-    "%": PERCENTAGE,
-    "kWh": UnitOfEnergy.KILO_WATT_HOUR,
-}
 
 
 async def async_setup_entry(
@@ -79,12 +61,7 @@ async def async_setup_entry(
     # Create enum sensors
     enum_entities: list[BMWCarDataEnumSensor] = []
 
-    # State-dependent icon mappings for enum sensors
-    state_icon_map: dict[str, dict[str, str]] = {
-        "vehicle.drivetrain.electricEngine.charging.status": CHARGING_STATUS_ICONS,
-    }
-
-    for key, (name, options, icon, translation_key, drivetrain) in KNOWN_ENUM_SENSORS.items():
+    for key, (name, options, icon, translation_key, drivetrain, state_icons) in KNOWN_ENUM_SENSORS.items():
         if not coordinator.is_electric and drivetrain == DRIVETRAIN_ELECTRIC:
             continue
 
@@ -96,7 +73,7 @@ async def async_setup_entry(
                 options=options,
                 icon=icon,
                 translation_key=translation_key,
-                state_icons=state_icon_map.get(key),
+                state_icons=state_icons,
             )
         )
 
@@ -115,21 +92,18 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
         key: str,
         name: str,
         unit: str | None,
-        device_class: str | None,
+        device_class: SensorDeviceClass | None,
         icon: str | None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, key, name)
 
-        # Set unit
         if unit:
-            self._attr_native_unit_of_measurement = UNIT_MAP.get(unit, unit)
+            self._attr_native_unit_of_measurement = unit
 
-        # Set device class
         if device_class:
-            self._attr_device_class = DEVICE_CLASS_MAP.get(device_class)
+            self._attr_device_class = device_class
 
-        # Set icon
         if icon:
             self._attr_icon = icon
 
@@ -138,7 +112,7 @@ class BMWCarDataSensor(BMWCarDataEntity, SensorEntity):
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
         # Energy delta is a total value, not a point-in-time measurement
-        if device_class == "energy":
+        if device_class == SensorDeviceClass.ENERGY:
             self._attr_state_class = SensorStateClass.TOTAL
 
     def _restore_native_value(self, state: str) -> None:

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Final
 
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfLength, UnitOfPressure
+
 # Integration domain
 DOMAIN: Final = "bmw_cardata"
 ATTRIBUTION: Final = "Data provided by BMW CarData API"
@@ -67,74 +71,74 @@ DRIVETRAIN_COMBUSTION: Final = "combustion"
 
 # Known sensor keys with metadata
 # Format: key -> (name, unit, device_class, icon, drivetrain)
-KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None, str | None]]] = {
+KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, SensorDeviceClass | None, str | None, str | None]]] = {
     "vehicle.vehicle.travelledDistance": (
         "Odometer",
-        "km",
-        "distance",
+        UnitOfLength.KILOMETERS,
+        SensorDeviceClass.DISTANCE,
         "mdi:counter",
         None,
     ),
     "vehicle.drivetrain.lastRemainingRange": (
         "Total Range",
-        "km",
-        "distance",
+        UnitOfLength.KILOMETERS,
+        SensorDeviceClass.DISTANCE,
         "mdi:gas-station",
         None,
     ),
     "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange": (
         "Electric Range",
-        "km",
-        "distance",
+        UnitOfLength.KILOMETERS,
+        SensorDeviceClass.DISTANCE,
         "mdi:battery-charging",
         DRIVETRAIN_ELECTRIC,
     ),
     "vehicle.chassis.axle.row1.wheel.left.tire.pressure": (
         "Front Left Tire Pressure",
-        "kPa",
-        "pressure",
+        UnitOfPressure.KPA,
+        SensorDeviceClass.PRESSURE,
         "mdi:car-tire-alert",
         None,
     ),
     "vehicle.chassis.axle.row1.wheel.right.tire.pressure": (
         "Front Right Tire Pressure",
-        "kPa",
-        "pressure",
+        UnitOfPressure.KPA,
+        SensorDeviceClass.PRESSURE,
         "mdi:car-tire-alert",
         None,
     ),
     "vehicle.chassis.axle.row2.wheel.left.tire.pressure": (
         "Rear Left Tire Pressure",
-        "kPa",
-        "pressure",
+        UnitOfPressure.KPA,
+        SensorDeviceClass.PRESSURE,
         "mdi:car-tire-alert",
         None,
     ),
     "vehicle.chassis.axle.row2.wheel.right.tire.pressure": (
         "Rear Right Tire Pressure",
-        "kPa",
-        "pressure",
+        UnitOfPressure.KPA,
+        SensorDeviceClass.PRESSURE,
         "mdi:car-tire-alert",
         None,
     ),
     "vehicle.drivetrain.batteryManagement.header": (
         "Battery",
-        "%",
-        "battery",
+        PERCENTAGE,
+        SensorDeviceClass.BATTERY,
         "mdi:battery",
         DRIVETRAIN_ELECTRIC,
     ),
     "vehicle.drivetrain.fuelSystem.level": (
         "Fuel Level",
-        "%",
-        None,  # No built-in HA device class for fuel level
+        PERCENTAGE,
+        None,
         "mdi:gas-station",
         DRIVETRAIN_COMBUSTION,
     ),
     "vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged": (
         "Energy to Full Charge",
-        "kWh",
-        "energy",
+        UnitOfEnergy.KILO_WATT_HOUR,
+        SensorDeviceClass.ENERGY,
         "mdi:battery-charging",
         DRIVETRAIN_ELECTRIC,
     ),
@@ -142,7 +146,7 @@ KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None, st
 
 # Known binary sensor keys with metadata
 # Format: key -> (name, device_class, icon, drivetrain)
-KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] = {
+KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, BinarySensorDeviceClass | None, str | None, str | None]]] = {
     "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive": (
         "Charging Climatization",
         None,
@@ -151,58 +155,58 @@ KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | N
     ),
     "vehicle.body.trunk.isOpen": (
         "Trunk",
-        "opening",
+        BinarySensorDeviceClass.OPENING,
         "mdi:car-back",
         None,
     ),
     "vehicle.body.trunk.door.isOpen": (
         "Trunk Door",
-        "opening",
+        BinarySensorDeviceClass.OPENING,
         "mdi:car-back",
         None,
     ),
     "vehicle.body.hood.isOpen": (
         "Hood",
-        "opening",
+        BinarySensorDeviceClass.OPENING,
         "mdi:car",
         None,
     ),
 
     "vehicle.cabin.door.row1.driver.isOpen": (
         "Driver Door",
-        "door",
+        BinarySensorDeviceClass.DOOR,
         "mdi:car-door",
         None,
     ),
     "vehicle.cabin.door.row1.passenger.isOpen": (
         "Front Passenger Door",
-        "door",
+        BinarySensorDeviceClass.DOOR,
         "mdi:car-door",
         None,
     ),
     "vehicle.cabin.door.row2.driver.isOpen": (
         "Rear Left Door",
-        "door",
+        BinarySensorDeviceClass.DOOR,
         "mdi:car-door",
         None,
     ),
     "vehicle.cabin.door.row2.passenger.isOpen": (
         "Rear Right Door",
-        "door",
+        BinarySensorDeviceClass.DOOR,
         "mdi:car-door",
         None,
     ),
     "vehicle.body.chargingPort.status": (
         "Charging Port",
-        "plug",
+        BinarySensorDeviceClass.PLUG,
         "mdi:ev-plug-type2",
         DRIVETRAIN_ELECTRIC,
     ),
 }
 
 # Known enum sensor keys with metadata
-# Format: key -> (name, options, icon, translation_key, drivetrain)
-KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str | None]]] = {
+# Format: key -> (name, options, icon, translation_key, drivetrain, state_icons)
+KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str | None, dict[str, str] | None]]] = {
     "vehicle.drivetrain.electricEngine.charging.status": (
         "Charging Status",
         [
@@ -216,12 +220,21 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str |
         "mdi:ev-station",
         "charging_status",
         DRIVETRAIN_ELECTRIC,
+        {
+            "nocharging": "mdi:power-plug-off",
+            "initialization": "mdi:battery-clock",
+            "chargingactive": "mdi:battery-charging",
+            "chargingpaused": "mdi:battery-minus",
+            "chargingended": "mdi:battery-check",
+            "chargingerror": "mdi:battery-alert",
+        },
     ),
     "vehicle.cabin.window.row1.driver.status": (
         "Driver Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
         "window_status",
+        None,
         None,
     ),
     "vehicle.cabin.window.row1.passenger.status": (
@@ -230,12 +243,14 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str |
         "mdi:car-windshield",
         "window_status",
         None,
+        None,
     ),
     "vehicle.cabin.window.row2.driver.status": (
         "Rear Left Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
         "window_status",
+        None,
         None,
     ),
     "vehicle.cabin.window.row2.passenger.status": (
@@ -244,15 +259,7 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str |
         "mdi:car-windshield",
         "window_status",
         None,
+        None,
     ),
-}
-
-CHARGING_STATUS_ICONS: Final[dict[str, str]] = {
-    "nocharging": "mdi:power-plug-off",
-    "initialization": "mdi:battery-clock",
-    "chargingactive": "mdi:battery-charging",
-    "chargingpaused": "mdi:battery-minus",
-    "chargingended": "mdi:battery-check",
-    "chargingerror": "mdi:battery-alert",
 }
 
