@@ -60,137 +60,149 @@ LOCATION_LATITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLoc
 LOCATION_LONGITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLocation.longitude"
 LOCATION_ALTITUDE_KEY: Final = "vehicle.cabin.infotainment.navigation.currentLocation.altitude"
 
+# Drivetrain filter values for entity definitions
+# None = all drivetrains, "electric" = PHEV/BEV only, "combustion" = CONV/PHEV only
+DRIVETRAIN_ELECTRIC: Final = "electric"
+DRIVETRAIN_COMBUSTION: Final = "combustion"
+
 # Known sensor keys with metadata
-# Format: key -> (name, unit, device_class, icon)
-KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] = {
+# Format: key -> (name, unit, device_class, icon, drivetrain)
+KNOWN_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None, str | None]]] = {
     "vehicle.vehicle.travelledDistance": (
         "Odometer",
         "km",
         "distance",
         "mdi:counter",
+        None,
     ),
     "vehicle.drivetrain.lastRemainingRange": (
         "Total Range",
         "km",
         "distance",
         "mdi:gas-station",
+        None,
     ),
     "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange": (
         "Electric Range",
         "km",
         "distance",
         "mdi:battery-charging",
+        DRIVETRAIN_ELECTRIC,
     ),
     "vehicle.chassis.axle.row1.wheel.left.tire.pressure": (
         "Front Left Tire Pressure",
         "kPa",
         "pressure",
         "mdi:car-tire-alert",
+        None,
     ),
     "vehicle.chassis.axle.row1.wheel.right.tire.pressure": (
         "Front Right Tire Pressure",
         "kPa",
         "pressure",
         "mdi:car-tire-alert",
+        None,
     ),
     "vehicle.chassis.axle.row2.wheel.left.tire.pressure": (
         "Rear Left Tire Pressure",
         "kPa",
         "pressure",
         "mdi:car-tire-alert",
+        None,
     ),
     "vehicle.chassis.axle.row2.wheel.right.tire.pressure": (
         "Rear Right Tire Pressure",
         "kPa",
         "pressure",
         "mdi:car-tire-alert",
+        None,
     ),
     "vehicle.drivetrain.batteryManagement.header": (
         "Battery",
         "%",
         "battery",
         "mdi:battery",
+        DRIVETRAIN_ELECTRIC,
     ),
     "vehicle.drivetrain.fuelSystem.level": (
         "Fuel Level",
         "%",
         None,  # No built-in HA device class for fuel level
         "mdi:gas-station",
+        DRIVETRAIN_COMBUSTION,
     ),
     "vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged": (
         "Energy to Full Charge",
         "kWh",
         "energy",
         "mdi:battery-charging",
+        DRIVETRAIN_ELECTRIC,
     ),
 }
 
-# Sensor keys that require electric drivetrain (PHEV or BEV)
-ELECTRIC_SENSOR_KEYS: Final[set[str]] = {
-    "vehicle.drivetrain.electricEngine.kombiRemainingElectricRange",
-    "vehicle.drivetrain.batteryManagement.header",
-    "vehicle.drivetrain.electricEngine.charging.smeEnergyDeltaFullyCharged",
-}
-
-# Sensor keys that require combustion engine (CONV or PHEV, not BEV)
-COMBUSTION_SENSOR_KEYS: Final[set[str]] = {
-    "vehicle.drivetrain.fuelSystem.level",
-}
-
 # Known binary sensor keys with metadata
-# Format: key -> (name, device_class, icon)
-KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None]]] = {
+# Format: key -> (name, device_class, icon, drivetrain)
+KNOWN_BINARY_SENSORS: Final[dict[str, tuple[str, str | None, str | None, str | None]]] = {
     "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive": (
         "Charging Climatization",
         None,
         "mdi:air-conditioner",
+        DRIVETRAIN_ELECTRIC,
     ),
     "vehicle.body.trunk.isOpen": (
         "Trunk",
         "opening",
         "mdi:car-back",
+        None,
     ),
     "vehicle.body.trunk.door.isOpen": (
         "Trunk Door",
         "opening",
         "mdi:car-back",
+        None,
     ),
     "vehicle.body.hood.isOpen": (
         "Hood",
         "opening",
         "mdi:car",
+        None,
     ),
 
     "vehicle.cabin.door.row1.driver.isOpen": (
         "Driver Door",
         "door",
         "mdi:car-door",
+        None,
     ),
     "vehicle.cabin.door.row1.passenger.isOpen": (
         "Front Passenger Door",
         "door",
         "mdi:car-door",
+        None,
     ),
     "vehicle.cabin.door.row2.driver.isOpen": (
         "Rear Left Door",
         "door",
         "mdi:car-door",
+        None,
     ),
     "vehicle.cabin.door.row2.passenger.isOpen": (
         "Rear Right Door",
         "door",
         "mdi:car-door",
+        None,
     ),
     "vehicle.body.chargingPort.status": (
         "Charging Port",
         "plug",
         "mdi:ev-plug-type2",
+        DRIVETRAIN_ELECTRIC,
     ),
 }
 
 # Known enum sensor keys with metadata
-# Format: key -> (name, options, icon, translation_key)
-KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str]]] = {
+# Format: key -> (name, options, icon, translation_key, drivetrain)
+KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str, str | None]]] = {
     "vehicle.drivetrain.electricEngine.charging.status": (
         "Charging Status",
         [
@@ -203,30 +215,35 @@ KNOWN_ENUM_SENSORS: Final[dict[str, tuple[str, list[str], str | None, str]]] = {
         ],
         "mdi:ev-station",
         "charging_status",
+        DRIVETRAIN_ELECTRIC,
     ),
     "vehicle.cabin.window.row1.driver.status": (
         "Driver Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
         "window_status",
+        None,
     ),
     "vehicle.cabin.window.row1.passenger.status": (
         "Front Passenger Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
         "window_status",
+        None,
     ),
     "vehicle.cabin.window.row2.driver.status": (
         "Rear Left Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
         "window_status",
+        None,
     ),
     "vehicle.cabin.window.row2.passenger.status": (
         "Rear Right Window",
         ["open", "intermediate", "closed"],
         "mdi:car-windshield",
         "window_status",
+        None,
     ),
 }
 
@@ -239,13 +256,3 @@ CHARGING_STATUS_ICONS: Final[dict[str, str]] = {
     "chargingerror": "mdi:battery-alert",
 }
 
-# Enum sensor keys that require electric drivetrain (PHEV or BEV)
-ELECTRIC_ENUM_SENSOR_KEYS: Final[set[str]] = {
-    "vehicle.drivetrain.electricEngine.charging.status",
-}
-
-# Binary sensor keys that require electric drivetrain (PHEV or BEV)
-ELECTRIC_BINARY_SENSOR_KEYS: Final[set[str]] = {
-    "vehicle.drivetrain.electricEngine.charging.profile.climatizationActive",
-    "vehicle.body.chargingPort.status",
-}

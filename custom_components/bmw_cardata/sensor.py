@@ -16,9 +16,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CHARGING_STATUS_ICONS,
-    COMBUSTION_SENSOR_KEYS,
-    ELECTRIC_ENUM_SENSOR_KEYS,
-    ELECTRIC_SENSOR_KEYS,
+    DRIVETRAIN_COMBUSTION,
+    DRIVETRAIN_ELECTRIC,
     KNOWN_ENUM_SENSORS,
     KNOWN_SENSORS,
 )
@@ -55,13 +54,13 @@ async def async_setup_entry(
     # Create entities for all known sensors
     entities: list[BMWCarDataSensor] = []
 
-    for key, (name, unit, device_class, icon) in KNOWN_SENSORS.items():
+    for key, (name, unit, device_class, icon, drivetrain) in KNOWN_SENSORS.items():
         # Skip electric-only sensors for conventional vehicles
-        if not coordinator.is_electric and key in ELECTRIC_SENSOR_KEYS:
+        if not coordinator.is_electric and drivetrain == DRIVETRAIN_ELECTRIC:
             continue
 
         # Skip combustion-only sensors for BEV vehicles
-        if coordinator.is_bev and key in COMBUSTION_SENSOR_KEYS:
+        if coordinator.is_bev and drivetrain == DRIVETRAIN_COMBUSTION:
             continue
 
         entities.append(
@@ -85,8 +84,8 @@ async def async_setup_entry(
         "vehicle.drivetrain.electricEngine.charging.status": CHARGING_STATUS_ICONS,
     }
 
-    for key, (name, options, icon, translation_key) in KNOWN_ENUM_SENSORS.items():
-        if not coordinator.is_electric and key in ELECTRIC_ENUM_SENSOR_KEYS:
+    for key, (name, options, icon, translation_key, drivetrain) in KNOWN_ENUM_SENSORS.items():
+        if not coordinator.is_electric and drivetrain == DRIVETRAIN_ELECTRIC:
             continue
 
         enum_entities.append(
