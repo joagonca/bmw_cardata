@@ -306,7 +306,7 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_user()
 
         result = await self._async_show_auth_and_poll("auth", user_input)
-        if isinstance(result, dict):
+        if TOKEN_ACCESS in result:
             self._tokens = result
             return await self.async_step_select_vin()
         return result
@@ -431,7 +431,7 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="api_error")
 
         result = await self._async_show_auth_and_poll("reauth_auth", user_input)
-        if isinstance(result, dict):
+        if TOKEN_ACCESS in result:
             entry = self._get_reauth_entry()
             return self.async_update_reload_and_abort(
                 entry,
