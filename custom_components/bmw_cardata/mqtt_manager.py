@@ -105,10 +105,20 @@ class BMWMqttManager:
             # Force a token refresh before every MQTT connect.  BMW's MQTT broker
             # authenticates with the ID token, which can be stale even when the
             # access token is still valid (e.g. right after a re-auth device-code
-            # grant).  A failed refresh is not fatal — we fall back to the
-            # existing id_token from a previous successful auth.
+            # grant).  If the refresh fails for any reason (expired token, server
+            # error, revocation), don't attempt MQTT with stale credentials — the
+            # broker will reject them and the reconnect loop needs to exhaust its
+            # attempts so it can surface a reauth notification.
             _LOGGER.debug("[%s] Forcing token refresh before MQTT connect", self._gcid[:8])
-            await self._token_manager.async_refresh_tokens(force=True)
+            refresh_ok = await self._token_manager.async_refresh_tokens(force=True)
+
+            if not refresh_ok:
+                _LOGGER.error(
+                    "[%s] Token refresh failed — cannot connect to MQTT",
+                    self._gcid[:8],
+                )
+                self._mqtt_connecting = False
+                return
 
             tokens = self._token_manager.tokens
             id_token = tokens.get(TOKEN_ID)

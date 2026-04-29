@@ -77,7 +77,8 @@ class BMWTokenManager:
         expires_at = self._tokens.get(TOKEN_EXPIRES_AT, 0)
         return time.time() >= (expires_at - TOKEN_REFRESH_BUFFER)
 
-    def _is_refresh_token_valid(self) -> bool:
+    @property
+    def is_refresh_token_valid(self) -> bool:
         """Check if refresh token is still valid."""
         refresh_expires_at = self._tokens.get(TOKEN_REFRESH_EXPIRES_AT, 0)
         return time.time() < refresh_expires_at
@@ -101,7 +102,7 @@ class BMWTokenManager:
             if not force and not self._needs_token_refresh():
                 return True
 
-            if not self._is_refresh_token_valid():
+            if not self.is_refresh_token_valid:
                 _LOGGER.error(
                     "[%s] Refresh token expired, re-authentication required",
                     self.client_id[:8],
