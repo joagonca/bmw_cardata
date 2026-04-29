@@ -107,17 +107,31 @@ class BMWMqttManager:
             # access token is still valid (e.g. right after a re-auth device-code
             # grant).  If the refresh fails for any reason (expired token, server
             # error, revocation), don't attempt MQTT with stale credentials — the
-            # broker will reject them and the reconnect loop needs to exhaust its
-            # attempts so it can surface a reauth notification.
+            # broker will reject them.
             _LOGGER.debug("[%s] Forcing token refresh before MQTT connect", self._gcid[:8])
             refresh_ok = await self._token_manager.async_refresh_tokens(force=True)
 
             if not refresh_ok:
-                _LOGGER.error(
-                    "[%s] Token refresh failed — cannot connect to MQTT",
-                    self._gcid[:8],
-                )
                 self._mqtt_connecting = False
+
+                if not self._token_manager.is_refresh_token_valid:
+                    # Unrecoverable: refresh token expired/revoked — trigger
+                    # reauth immediately so the user gets the notification.
+                    _LOGGER.error(
+                        "[%s] Refresh token expired — triggering re-authentication",
+                        self._gcid[:8],
+                    )
+                    self._trigger_reauth()
+                else:
+                    # Transient failure (network, server error): schedule the
+                    # reconnect loop which will retry with backoff and trigger
+                    # reauth only if all attempts fail.
+                    _LOGGER.warning(
+                        "[%s] Token refresh failed (transient) — scheduling reconnect",
+                        self._gcid[:8],
+                    )
+                    if not self._reconnect_lock.locked():
+                        self.hass.async_create_task(self._async_handle_reconnect())
                 return
 
             tokens = self._token_manager.tokens
@@ -326,15 +340,19 @@ class BMWMqttManager:
 
             # Surface a re-authentication notification in the HA UI so the user
             # can renew their session without removing the integration.
-            for entry_id in list(self._token_manager._config_entries):
-                entry = self.hass.config_entries.async_get_entry(entry_id)
-                if entry:
-                    entry.async_start_reauth(self.hass)
-                    _LOGGER.warning(
-                        "[%s] Re-authentication required — check Home Assistant notifications",
-                        self._gcid[:8],
-                    )
-                    break
+            self._trigger_reauth()
+
+    def _trigger_reauth(self) -> None:
+        """Surface a re-authentication notification in the HA UI."""
+        for entry_id in list(self._token_manager._config_entries):
+            entry = self.hass.config_entries.async_get_entry(entry_id)
+            if entry:
+                entry.async_start_reauth(self.hass)
+                _LOGGER.warning(
+                    "[%s] Re-authentication required — check Home Assistant notifications",
+                    self._gcid[:8],
+                )
+                break
 
     def _on_mqtt_message(
         self,
