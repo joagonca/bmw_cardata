@@ -441,6 +441,50 @@ class BMWCarDataConfigFlow(ConfigFlow, domain=DOMAIN):
         return result
 
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration — allows user to force re-authentication."""
+        entry = self._get_reconfigure_entry()
+        self._client_id = entry.data[CONF_CLIENT_ID]
+
+        if user_input is not None:
+            self._code_verifier, code_challenge = _generate_pkce()
+            try:
+                self._device_code_response = await _request_device_code(
+                    self.hass, self._client_id, code_challenge
+                )
+                return await self.async_step_reconfigure_auth()
+            except InvalidClientError:
+                return self.async_abort(reason="invalid_client_id")
+            except Exception as err:
+                _LOGGER.error("Reconfigure device code request failed: %s", err)
+                return self.async_abort(reason="api_error")
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema({}),
+            description_placeholders={},
+        )
+
+    async def async_step_reconfigure_auth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show auth URL and poll for new tokens during reconfigure."""
+        if self._device_code_response is None:
+            return self.async_abort(reason="api_error")
+
+        result = await self._async_show_auth_and_poll("reconfigure_auth", user_input)
+        if TOKEN_ACCESS in result:
+            entry = self._get_reconfigure_entry()
+            return self.async_update_reload_and_abort(
+                entry,
+                data={**entry.data, CONF_TOKENS: result},
+                reason="reauth_successful",
+            )
+        return result
+
+
 class BMWCarDataOptionsFlowHandler(OptionsFlow):
     """Handle BMW CarData options."""
 

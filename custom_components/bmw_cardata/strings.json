@@ -26,6 +26,14 @@
       "reauth_auth": {
         "title": "Authorize with BMW",
         "description": "1. Visit: **{url}**\n2. Enter code: **{user_code}**\n3. Log in with your BMW account and authorize\n4. Click **Submit** below after authorizing"
+      },
+      "reconfigure": {
+        "title": "Re-authenticate with BMW",
+        "description": "Click **Submit** to start the re-authentication process.\n\nYou will be asked to log in to your BMW account again."
+      },
+      "reconfigure_auth": {
+        "title": "Authorize with BMW",
+        "description": "1. Visit: **{url}**\n2. Enter code: **{user_code}**\n3. Log in with your BMW account and authorize\n4. Click **Submit** below after authorizing"
       }
     },
     "error": {

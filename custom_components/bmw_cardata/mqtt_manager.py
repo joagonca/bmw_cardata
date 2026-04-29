@@ -88,12 +88,16 @@ class BMWMqttManager:
         
             return len(self._vin_callbacks) == 0
 
-    async def async_start(self) -> None:
-        """Start the MQTT connection."""
+    async def async_start(self) -> bool:
+        """Start the MQTT connection.
+
+        Returns True if a connection attempt was initiated, False if
+        authentication failed and reauth is needed.
+        """
         async with self._start_lock:
             # Already connected or connection in progress
             if self._mqtt_connected or self._mqtt_connecting:
-                return
+                return True
             
             # If we have a dead client, clean it up first
             if self._mqtt_client and not self._mqtt_connected and not self._mqtt_connecting:
@@ -102,37 +106,18 @@ class BMWMqttManager:
             
             self._mqtt_connecting = True
 
-            # Force a token refresh before every MQTT connect.  BMW's MQTT broker
-            # authenticates with the ID token, which can be stale even when the
-            # access token is still valid (e.g. right after a re-auth device-code
-            # grant).  If the refresh fails for any reason (expired token, server
-            # error, revocation), don't attempt MQTT with stale credentials — the
-            # broker will reject them.
+            # Force a token refresh before every MQTT connect.  If it fails for
+            # any reason, signal auth failure — don't attempt MQTT with stale creds.
             _LOGGER.debug("[%s] Forcing token refresh before MQTT connect", self._gcid[:8])
             refresh_ok = await self._token_manager.async_refresh_tokens(force=True)
 
             if not refresh_ok:
                 self._mqtt_connecting = False
-
-                if not self._token_manager.is_refresh_token_valid:
-                    # Unrecoverable: refresh token expired/revoked — trigger
-                    # reauth immediately so the user gets the notification.
-                    _LOGGER.error(
-                        "[%s] Refresh token expired — triggering re-authentication",
-                        self._gcid[:8],
-                    )
-                    self._trigger_reauth()
-                else:
-                    # Transient failure (network, server error): schedule the
-                    # reconnect loop which will retry with backoff and trigger
-                    # reauth only if all attempts fail.
-                    _LOGGER.warning(
-                        "[%s] Token refresh failed (transient) — scheduling reconnect",
-                        self._gcid[:8],
-                    )
-                    if not self._reconnect_lock.locked():
-                        self.hass.async_create_task(self._async_handle_reconnect())
-                return
+                _LOGGER.error(
+                    "[%s] Token refresh failed — re-authentication required",
+                    self._gcid[:8],
+                )
+                return False
 
             tokens = self._token_manager.tokens
             id_token = tokens.get(TOKEN_ID)
@@ -140,7 +125,7 @@ class BMWMqttManager:
             if not id_token:
                 _LOGGER.error("[%s] Missing ID token for MQTT — re-authentication required", self._gcid[:8])
                 self._mqtt_connecting = False
-                return
+                return False
 
             def _create_and_connect():
                 """Create MQTT client and connect (runs in executor)."""
@@ -179,9 +164,11 @@ class BMWMqttManager:
                     MQTT_BROKER_HOST,
                     MQTT_BROKER_PORT,
                 )
+                return True
             except Exception as err:
                 self._mqtt_connecting = False
                 _LOGGER.error("[%s] Failed to create MQTT client: %s", self._gcid[:8], err)
+                return False
 
     async def _async_stop_client(self) -> None:
         """Stop the MQTT client without affecting connecting state."""
@@ -347,12 +334,16 @@ class BMWMqttManager:
         for entry_id in list(self._token_manager._config_entries):
             entry = self.hass.config_entries.async_get_entry(entry_id)
             if entry:
-                entry.async_start_reauth(self.hass)
+                try:
+                    entry.async_start_reauth(self.hass)
+                except TypeError:
+                    # HA 2025+: hass parameter removed
+                    entry.async_start_reauth()
                 _LOGGER.warning(
-                    "[%s] Re-authentication required — check Home Assistant notifications",
+                    "[%s] Re-authentication triggered — check HA notifications",
                     self._gcid[:8],
                 )
-                break
+
 
     def _on_mqtt_message(
         self,

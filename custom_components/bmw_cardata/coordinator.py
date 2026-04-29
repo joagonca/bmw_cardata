@@ -128,8 +128,9 @@ class BMWCarDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Register with shared MQTT manager
         self._mqtt_manager.register_vin(self._vin, self._handle_mqtt_message)
         
-        # Start MQTT if not already running
-        await self._mqtt_manager.async_start()
+        # Start MQTT — if it fails (auth issue), trigger reauth
+        if not await self._mqtt_manager.async_start():
+            self._mqtt_manager._trigger_reauth()
 
         return True
 
